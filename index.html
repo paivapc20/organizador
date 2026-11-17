@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1c2740">
+<meta name="description" content="Organizador de Registros y Organizador S-21: informes, asistencia, tarjetas S-21 y más. Funciona sin conexión.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Organizador">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Organizador de Registros y S-21</title>
+<script src="xlsx.full.min.js"></script>
+<style>
+:root{--ink:#1c2740;--ink2:#3a4863;--paper:#efece3;--line:#d6d1c2;--line2:#b7b1a0;--brass:#8a6d2f;--stamp:#9c3b2e;--ok:#2f6b4f;--muted:#6b6558;--serif:Georgia,"Times New Roman",serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.hidden{display:none!important}
+/* ---- cabecera ---- */
+header.app{background:var(--ink);color:#f3f1ea;padding:10px 16px 0;padding-top:calc(10px + env(safe-area-inset-top));padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right));border-bottom:3px solid var(--brass)}
+.hrow{display:flex;align-items:center;gap:10px}
+.logo{width:40px;height:40px;flex:none}
+.brand{min-width:0}.brand b{font:700 18px var(--serif);display:block;line-height:1.15}
+.brand small{color:#9fd3b6;font-size:11px;display:block;min-height:13px}
+#ps{margin-left:auto;background:#28344f;color:#fff;border:1px solid #3a4a68;border-radius:7px;padding:7px 8px;font-size:13px;max-width:46vw}
+.groups{display:flex;gap:6px;margin-top:10px}
+.groups button{flex:1;background:#28344f;border:1px solid #3a4a68;color:#d5dae6;padding:10px 8px;border-radius:8px;font-weight:700;font-size:13.5px;cursor:pointer;font-family:inherit}
+.groups button.on{background:var(--brass);border-color:var(--brass);color:#fff}
+.subs{display:flex;gap:4px;overflow-x:auto;margin-top:8px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.subs::-webkit-scrollbar{display:none}
+.subs button{flex:none;background:0;border:0;color:#c7ccd8;padding:9px 13px;border-radius:7px 7px 0 0;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit;white-space:nowrap}
+.subs button.on{background:var(--paper);color:var(--ink)}
+main{padding:16px;max-width:1180px;margin:0 auto;padding-left:calc(16px + env(safe-area-inset-left));padding-right:calc(16px + env(safe-area-inset-right));padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+/* ---- bloques comunes ---- */
+.tb,.box,.rb{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.tb{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}.sp{flex:1}
+.f{display:flex;flex-direction:column;gap:4px}
+.f label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+select,input[type=text],input[type=number]{font:inherit;padding:9px;border:1px solid var(--line2);border-radius:7px;background:#fff;color:var(--ink);min-width:140px;max-width:100%}
+select:focus,input:focus{outline:2px solid var(--brass);outline-offset:-1px}
+.pill{font-size:12px;color:var(--muted);background:var(--paper);border:1px solid var(--line);padding:6px 12px;border-radius:20px}
+button.a,label.a{background:var(--ink);color:#fff;border:0;padding:10px 15px;border-radius:7px;font-weight:600;font-size:13px;cursor:pointer;display:inline-block;margin:3px 3px 3px 0;font-family:inherit}
+button.a:hover,label.a:hover{background:var(--ink2)}
+button.a:disabled{background:var(--line2);cursor:not-allowed}
+button.pr{background:var(--brass)}button.d{background:var(--stamp)}
+.switch{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 12px;cursor:pointer}
+.switch input{width:17px;height:17px;accent-color:var(--brass)}
+.emp{background:#fff;border:1px solid var(--line);border-radius:10px;padding:40px 20px;text-align:center;color:var(--muted)}
+.emp .big{font-size:34px;margin-bottom:8px}
+.w{overflow:auto;-webkit-overflow-scrolling:touch}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{border:1px solid #9aa3b5;padding:5px 7px;text-align:center}
+th{background:#eef0f4;font-size:11px}
+td.l,th.l{text-align:left}
+.tot td{background:#f3f1ea;font-weight:800}
+.dk th{background:var(--ink);color:#fff}
+h2{text-align:center;font-size:16px;text-transform:uppercase;margin:0 0 12px;letter-spacing:.4px}
+h3{font-size:14px;margin:16px 0 8px}
+.nt{font-size:11.5px;color:var(--muted);margin-top:8px}
+.wn{background:#fff6e9;border:1px solid #e6c98a;color:#7a5a12;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px}
+.ok{background:#eef5f0;border:1px solid #a9cbb7;color:#245c3f;padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.gc{border:1px solid var(--line);border-radius:10px;background:#fff;overflow:hidden}
+.gc>b{display:block;background:var(--ink);color:#fff;padding:9px 12px}
+.gc div{padding:8px 12px;border-bottom:1px solid var(--line)}.gc input{width:100%;margin-top:3px}
+.tag{display:inline-block;background:var(--paper);border:1px solid var(--line);border-radius:5px;padding:1px 7px;font-size:11px}
+.k1,.k2,.k3{font-size:20px;font-weight:800}.k1{background:#dbeafe}.k2{background:#fde2e2}.k3{background:#fdf3c7}
+.big2{font-size:19px}.red{color:var(--stamp)}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.seg button{background:#fff;border:1px solid var(--line2);color:var(--ink);padding:9px 14px;border-radius:20px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.frow{display:flex;flex-wrap:wrap;gap:14px 12px;align-items:flex-end;padding:8px 0}
+#bn{position:fixed;left:0;right:0;bottom:0;background:var(--brass);color:#fff;padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+#bn button{margin:0}
+/* ---- casillas ---- */
+.cb{display:inline-grid;place-items:center;width:13px;height:13px;border:1.4px solid var(--ink);vertical-align:middle;font-size:11px;line-height:1;font-weight:900;color:var(--stamp);flex:none}
+.cb.on::after{content:"\2715"}
+/* ---- tarjeta S-21 ---- */
+.cards{display:flex;flex-direction:column;gap:26px}
+.s21card{background:#fff;border:1.5px solid var(--ink);border-radius:4px;padding:16px 18px 14px;max-width:960px;margin:0 auto;width:100%;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.s21card .title{font-family:var(--serif);text-align:center;font-size:15.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:12px}
+.idrow{display:flex;gap:10px;margin-bottom:6px;align-items:baseline;flex-wrap:wrap}
+.idrow .lbl{font-size:12px;font-weight:700}
+.idrow .val{font-family:var(--mono);border-bottom:1px solid var(--ink);min-width:120px;padding:0 6px 1px;font-size:13px;flex:1}
+.idrow .val.name{font-weight:700;flex:2}
+.checkline{display:flex;gap:6px 18px;flex-wrap:wrap;margin:4px 0}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
+.rule{border:none;border-top:1px solid var(--line);margin:9px 0}
+.syline{display:flex;align-items:baseline;gap:8px;margin:8px 0 6px;font-size:12.5px;font-weight:700}
+.syline .yr{font-family:var(--mono);font-size:14px;border-bottom:1.4px solid var(--ink);padding:0 12px}
+table.s21{table-layout:fixed;font-size:11.5px}
+table.s21 th,table.s21 td{border:1px solid var(--ink2);padding:3px 5px;vertical-align:middle}
+table.s21 thead th{background:#eef0f4;font-size:10px;line-height:1.2;text-align:center}
+table.s21 td.mon{font-weight:600;white-space:nowrap;text-align:left}
+table.s21 td.c{text-align:center}table.s21 td.r{text-align:right;font-family:var(--mono)}
+table.s21 td.nt2{font-size:10.5px;text-align:left}
+table.s21 tr.total td{background:#f3f1ea;font-weight:800}
+.foot{margin-top:8px;font-size:9.5px;color:var(--muted);display:flex;justify-content:space-between}
+.cw1{width:15%}.cw2{width:12%}.cw3{width:9%}.cw4{width:12%}.cw5{width:10%}
+/* ---- informe de publicadores ---- */
+.repblock{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 20px 20px;margin:0 auto 22px;max-width:960px}
+.repblock h2{margin-bottom:14px;font-weight:800}
+table.rep{table-layout:fixed;font-size:12.5px}
+table.rep th,table.rep td{border:1px solid var(--ink);padding:5px 6px}
+table.rep thead th{background:#fff;font-size:10.5px;line-height:1.25}
+table.rep thead th .sy{display:block;font-weight:800;margin-top:3px;font-size:12px}
+table.rep td.mon{text-align:left;padding-left:9px}
+table.rep td.num{font-family:var(--mono);font-size:13px}
+table.rep td.zero{color:#9a978d}
+table.rep tr.total td{border:none;font-weight:800;background:#fff}
+table.rep tr.total td.tlabel{text-align:right;padding-right:10px}
+table.rep tr.total td.tval{border:1px solid var(--ink);font-family:var(--mono)}
+/* ---- S-88 ---- */
+.s88sheet{background:#fff;border:1.5px solid var(--ink);border-radius:4px;padding:16px 18px 18px;max-width:1000px;margin:0 auto 26px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.s88sheet .title{font-family:var(--serif);text-align:center;font-size:15px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:14px}
+.s88pair{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.s88pair .kind{font-size:12.5px;font-weight:700;text-align:center;margin-bottom:5px;border-bottom:1.4px solid var(--ink);padding-bottom:3px}
+table.s88{table-layout:fixed;font-size:11.5px}
+table.s88 th,table.s88 td{border:1px solid var(--ink2);padding:3px 5px}
+table.s88 thead th{background:#eef0f4;font-size:9.5px;line-height:1.2}
+table.s88 thead th .sy{display:block;font-weight:800;font-size:11.5px;margin-top:2px}
+table.s88 td.mon{text-align:left;font-weight:600;padding-left:7px;white-space:nowrap}
+table.s88 td.num{font-family:var(--mono);font-size:12px}
+table.s88 td.dash{color:#a8a498}
+table.s88 tr.avg td{background:#f3f1ea;font-weight:800}
+table.s88 tr.avg td.lbl{text-align:right;font-size:10px}
+/* ---- pantallas pequeñas ---- */
+@media(max-width:820px){
+  main{padding-top:12px}
+  .tb{padding:12px;gap:10px}.tb .f{flex:1 1 140px}.tb .sp{display:none}
+  .tb select,.tb input[type=text]{width:100%;min-width:0}
+  .tb .pill{order:5}.tb button.a{width:100%;order:6}
+  select,input[type=text],input[type=number]{font-size:16px}
+  .s88pair{grid-template-columns:1fr}
+  .s21card{padding:14px 12px 12px}.repblock{padding:14px 10px}
+  table.s21{font-size:10px}table.s21 th,table.s21 td{padding:2px 3px}
+  table.rep{font-size:11px}
+}
+@media(max-width:480px){.brand b{font-size:16px}body{font-size:13px}.groups button{font-size:12.5px;padding:9px 4px}}
+/* ---- tablet ---- */
+@media(min-width:768px) and (max-width:1100px){main{padding:18px 22px}.subs button{padding:10px 16px;font-size:14px}}
+/* ---- modo consulta / solo S-21 ---- */
+body.ro .edit{display:none!important}
+body.only #gn,body.only #ps{display:none!important}
+/* ---- impresión ---- */
+@media print{
+  header.app,.tb,.seg,.wn,.ok,.no,#bn,.nt.no{display:none!important}
+  body{background:#fff}main{padding:0;max-width:none}
+  .s21card{box-shadow:none;border:1.4px solid #000;page-break-after:always;max-width:none;margin:0}
+  .s21card:last-child{page-break-after:auto}
+  .cards{gap:0}
+  .repblock{border:none;padding:0;margin:0 0 26px;max-width:none;page-break-inside:avoid}
+  .s88sheet{box-shadow:none;border:1.4px solid #000;max-width:none;margin:0;page-break-inside:avoid}
+  .rb{border-color:#000;page-break-inside:avoid}
+  table.s88 th,table.s88 td,table.rep th,table.rep td{border-color:#000}
+  .cb{color:#000}
+  @page{size:A4;margin:12mm}
+}
+</style></head><body>
+<header class="app">
+  <div class="hrow">
+    <svg class="logo" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#28344f"/><rect x="140" y="104" width="232" height="290" rx="20" fill="#efece3"/><rect x="140" y="104" width="232" height="56" rx="20" fill="#8a6d2f"/><rect x="140" y="140" width="232" height="20" fill="#8a6d2f"/><g fill="none" stroke="#1c2740" stroke-width="12" stroke-linecap="round"><rect x="168" y="188" width="30" height="30" rx="5"/><rect x="168" y="244" width="30" height="30" rx="5"/><rect x="168" y="300" width="30" height="30" rx="5"/></g><g stroke="#9c3b2e" stroke-width="12" stroke-linecap="round"><path d="M175 195l16 16M191 195l-16 16"/></g><g stroke="#3a4863" stroke-width="14" stroke-linecap="round"><path d="M226 203h116M226 259h116M226 315h84"/></g><circle cx="372" cy="388" r="62" fill="#2f6b4f" stroke="#1c2740" stroke-width="12"/><path d="M342 388l22 22 40-46" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="brand"><b id="ttl">Organizador</b><small id="sv"></small></div>
+    <select id="ps" onchange="sw(this.value)" title="Perfil"></select>
+  </div>
+  <nav class="groups" id="gn"></nav>
+  <nav class="subs" id="nv"></nav>
+</header>
+<main id="mn"></main>
+<div id="bn" class="hidden"><span>Hay una versión nueva de la aplicación.</span><button class="a" onclick="upd()">Actualizar ahora</button></div>
+<script>
+/* ======================= Organizador (Registros + S-21) ======================= */
+const $=i=>document.getElementById(i);
+const MO=[["Septiembre",9],["Octubre",10],["Noviembre",11],["Diciembre",12],["Enero",1],["Febrero",2],["Marzo",3],["Abril",4],["Mayo",5],["Junio",6],["Julio",7],["Agosto",8]];
+const MN={};MO.forEach(x=>MN[x[1]]=x[0]);
+const MS=MO.map(x=>[x[1],x[0]]).sort((a,b)=>a[0]-b[0]);
+const MI={enero:1,febrero:2,marzo:3,abril:4,mayo:5,junio:6,julio:7,agosto:8,septiembre:9,setiembre:9,octubre:10,noviembre:11,diciembre:12,janeiro:1,fevereiro:2,marco:3,maio:5,junho:6,julho:7,setembro:9,outubro:10,novembro:11,dezembro:12};
+const norm=s=>(s==null?"":String(s)).trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/\s+/g," ");
+const nk=s=>norm(s).replace(/[,.]/g," ").split(" ").filter(w=>w&&!["de","del","la","las","los","y"].includes(w)).sort().join(" ");
+const esc=s=>(s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const yes=v=>["si","sim","yes","y","x","1","true","v"].includes(norm(v));
+const one=v=>v!=null&&(norm(v)==="1"||Number(v)===1);
+const num=v=>{if(v==null||v==="")return null;const n=Number(String(v).trim().replace(",","."));return isNaN(n)?null:n};
+const p2=n=>String(n).padStart(2,"0");
+const r1=x=>Math.round(x*10)/10, r2=x=>Math.round(x*100)/100;
+function fd(v){
+  if(v==null||v===""||v===0)return"";
+  if(typeof v==="number"&&isFinite(v)){if(v<=0)return"";const d=new Date(Math.round((v-25569)*864e5));return isNaN(d)?String(v):p2(d.getUTCDate())+"/"+p2(d.getUTCMonth()+1)+"/"+d.getUTCFullYear()}
+  if(v instanceof Date){return isNaN(v)?"":p2(v.getDate())+"/"+p2(v.getMonth()+1)+"/"+v.getFullYear()}
+  const s=String(v).trim(),m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return m[3]+"/"+m[2]+"/"+m[1];
+  const b=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);if(b)return p2(b[1])+"/"+p2(b[2])+"/"+b[3];
+  return s;
+}
+const hmap=r=>{const m={};r.forEach((h,i)=>{if(h!=null&&String(h).trim())m[norm(h)]=i});return m};
+function fc(h,...n){for(const x of n)if(h[x]!=null)return h[x];for(const x of n)for(const k in h)if(k.includes(x))return h[k];return-1}
+const tsv=v=>v==null?0:typeof v==="number"?v:(Date.parse(v)||0);
+
+/* ======================= Estado, perfiles y autoguardado ======================= */
+let S=null,P=null,PR=[],RO=false,ONLY=false,EMB=null,BND=null,DP=null,REG=null;
+const F={};
+let GR="reg",TAB="inf";
+const KP="orgreg_p",KC="orgreg_c",KD="orgreg_d_";
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const blank=()=>({pubs:[],rep:{},att:{},aa:{},gm:{},files:{},ini:{}});
+const lsGet=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
+let quotaWarned=false;
+function lsSet(k,v){
+  try{localStorage.setItem(k,JSON.stringify(v));return true}
+  catch(e){if(!quotaWarned){quotaWarned=true;alert("No se pudo guardar en este dispositivo (¿almacenamiento lleno o bloqueado?). Descarga una copia de seguridad en Configuración › Copias y compartir.")}return false}
+}
+let saveT=null;
+function save(){BND=null;if(ONLY||RO||!P)return;clearTimeout(saveT);saveT=setTimeout(flush,350)}
+function flush(){
+  clearTimeout(saveT);saveT=null;if(ONLY||RO||!P)return;
+  if(lsSet(KD+P.id,S))$("sv").textContent="✓ Guardado automáticamente "+new Date().toLocaleTimeString("es",{hour:"2-digit",minute:"2-digit"});
+}
+addEventListener("pagehide",()=>{if(saveT)flush()});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&saveT)flush()});
+
+function normalizeState(){
+  S.pubs.forEach(p=>{p.key=nk(p.nome);p.fl=p.fl||{}});
+  const o={};for(const k in S.rep){const q=k.split("|");o[nk(q[0])+"|"+q[1]+"|"+q[2]]=S.rep[k]}S.rep=o;
+  BND=null;
+}
+function fillProfiles(){
+  $("ps").innerHTML=PR.map(p=>`<option value="${p.id}"${P&&p.id===P.id?" selected":""}>${p.ro?"👁 ":"👤 "}${esc(p.name)}</option>`).join("");
+}
+function load(){
+  PR=lsGet(KP)||[];
+  if(!PR.length){PR=[{id:uid(),name:"Mi perfil"}];lsSet(KP,PR)}
+  let cur=null;try{cur=localStorage.getItem(KC)}catch(e){}
+  P=PR.find(p=>p.id===cur)||PR[0];
+  try{localStorage.setItem(KC,P.id)}catch(e){}
+  S=Object.assign(blank(),lsGet(KD+P.id)||{});
+  RO=!!P.ro;
+  normalizeState();fillProfiles();
+  $("sv").textContent=RO?"👁 Copia de solo consulta":(hasD()?"✓ Datos guardados en este dispositivo":"");
+  document.body.classList.toggle("ro",RO);
+}
+function sw(id){if(saveT)flush();try{localStorage.setItem(KC,id)}catch(e){}load();F.cs=null;go()}
+
+/* ======================= Cálculos ======================= */
+const SYM=sy=>MO.map(x=>({y:x[1]>=9?sy-1:sy,m:x[1]}));
+const E=(p,y,m)=>S.rep[p.key+"|"+y+"|"+m];
+const na=(p,y,m)=>{const t=S.ini[p.key];return!!t&&y*12+m<t.y*12+t.m};
+const rea=(p,y,m)=>{const t=S.ini[p.key];return!!t&&y*12+m>=t.y*12+t.m};
+const irr=(p,y,m)=>{const e=E(p,y,m);return!(e&&yes(e.pa))};
+const ymOf=i=>{const y=Math.floor((i-1)/12);return{y,m:i-y*12}};
+function bnd(){
+  if(BND)return BND;
+  let mn=1e9,mx=-1;
+  for(const k in S.rep){const a=k.split("|"),i=+a[1]*12+ +a[2];if(i<mn)mn=i;if(i>mx)mx=i}
+  return BND={mn,mx};
+}
+/* meses seguidos sin participar que terminan en idx (incl=true cuenta idx) */
+function streak(p,idx,incl){
+  const mn=bnd().mn;let s=0;
+  for(let i=incl?idx:idx-1;i>=mn;i--){
+    const t=ymOf(i);
+    if(na(p,t.y,t.m))break;
+    if(irr(p,t.y,t.m))s++;else break;
+  }
+  return s;
+}
+function inactiveAt(p,idx,incl){
+  const t=ymOf(idx);
+  return streak(p,idx,incl)>=6||(p.sit===false&&!rea(p,t.y,t.m));
+}
+const syL=()=>{const s=new Set;for(const k in S.rep){const a=k.split("|");s.add(+a[2]>=9?+a[1]+1:+a[1])}return[...s].sort((a,b)=>b-a)};
+const atL=()=>{const s=new Set;for(const k in S.att){const e=S.att[k];s.add(e.m>=9?e.y+1:e.y)}return[...s].sort((a,b)=>b-a)};
+const gl=v=>v==null||v===""?"":String(v).replace(/\.0$/,"");
+const grps=()=>[...new Set(S.pubs.map(p=>gl(p.grupo)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+const Y=()=>{const a=syL();if(!a.includes(+F.y))F.y=a[0]||new Date().getFullYear();return+F.y};
+const isAux=(p,sy)=>!p.fl.pioneiro&&SYM(sy).some(x=>{const e=E(p,x.y,x.m);return e&&yes(e.pr)});
+function RT(sy,only){
+  const rg=new Set(S.pubs.filter(p=>p.fl.pioneiro).map(p=>p.key)),d={};
+  ["pub","reg","aux"].forEach(c=>d[c]=MO.map(()=>({p:0,c:0,a:0,h:0})));
+  for(const k in S.rep){
+    const e=S.rep[k],a=k.split("|"),m=+a[2];
+    if(+a[1]!==(m>=9?sy-1:sy))continue;
+    const pos=MO.findIndex(x=>x[1]===m),R_=rg.has(a[0]),A=!R_&&yes(e.pr),r=d[R_?"reg":A?"aux":"pub"][pos];
+    if(!only||yes(e.pa))r.p++;
+    if(e.c)r.c+=e.c;
+    if(A)r.a++;
+    if((R_||A)&&e.h)r.h+=e.h;
+  }
+  return d;
+}
+function MT(sy){
+  const o={mid:MO.map(()=>({n:0,t:0})),wk:MO.map(()=>({n:0,t:0}))};
+  for(const k in S.att){
+    const e=S.att[k];
+    if(e.y!==(e.m>=9?sy-1:sy))continue;
+    const r=(e.w?o.wk:o.mid)[MO.findIndex(x=>x[1]===e.m)];
+    r.n+=e.n||1;r.t+=e.a;
+  }
+  return o;
+}
+const hasD=()=>!!(S&&(S.pubs.length||Object.keys(S.att).length||Object.keys(S.rep).length));
+/* ======================= Interfaz: utilidades ======================= */
+const R={};
+const emp=(i,t)=>`<div class="emp"><div class="big">${i}</div>${t}</div>`;
+const NEED=i=>emp(i,"Todavía no hay datos.<br>"+(ONLY?"":"Carga tus planillas en <b>Organizador de Registros › Configuración</b>.<br><button class='a pr' onclick='gotoCfg()'>Ir a Configuración</button>"));
+const opt=(a,v)=>a.map(x=>`<option value="${esc(x[0])}"${String(x[0])===String(v)?" selected":""}>${esc(x[1])}</option>`).join("");
+const sel=(k,l,a,v,ex)=>`<div class="f"><label>${l}</label><select onchange="${ex||""}F.${k}=this.value;go()">${opt(a,v===undefined?F[k]:v)}</select></div>`;
+const yo=a=>a.length?a.map(y=>[y,`${y-1}/${y} (sep-ago)`]):[["","--"]];
+const bar=(i,c)=>`<div class="tb">${i}<span class="sp"></span><span class="pill">${c}</span><button class="a pr" onclick="window.print()">🖨 Imprimir</button></div>`;
+const nc=v=>`<td>${v||0}</td>`;
+const bx=o=>`<span class="cb${o?" on":""}"></span>`;
+const gOpts=aux=>[["","Todos"],...grps().map(g=>["g:"+g,"Grupo "+g]),["reg","Precursores Regulares"],...(aux===false?[]:[["aux","Precursores Auxiliares"]])];
+function byGroup(s,sy){
+  return S.pubs.filter(p=>s===""||s==null||(s==="reg"?p.fl.pioneiro:s==="aux"?isAux(p,sy):gl(p.grupo)===s.slice(2)&&!p.fl.pioneiro));
+}
+const fil=()=>{const q=norm(F.q||"");return byGroup(F.g||"",Y()).filter(p=>!q||norm(p.nome).includes(q))};
+const qf=()=>`<div class="f"><label>Nombre</label><input id="qn" type="text" value="${esc(F.q||"")}" placeholder="Filtrar por nombre..." oninput="qin(this)"></div>`;
+function qin(el){F.q=el.value;clearTimeout(qin.t);qin.t=setTimeout(()=>{go();const i=$("qn");if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},280)}
+function gotoCfg(){GR="reg";TAB="cfg";F.cs="datos";go();scrollTo(0,0)}
+const unm=()=>{
+  const ks=new Set(S.pubs.map(p=>p.key)),u={};
+  for(const k in S.rep){const n=k.split("|")[0];if(!ks.has(n))u[n]=S.rep[k].nm||n}
+  const l=Object.values(u);
+  return l.length?`<div class="wn">⚠ ${l.length} nombre(s) de los informes no coinciden con ningún publicador de la lista, por eso no aparecen en sus tarjetas: <b>${l.slice(0,15).map(esc).join(", ")}${l.length>15?"…":""}</b>. Escríbelos igual que en la lista de Publicadores.</div>`:"";
+};
+function setAA(sy,k,v){(S.aa[sy]=S.aa[sy]||{})[k]=v;save()}
+function setGm(el,k){const g=el.dataset.g;(S.gm[g]=S.gm[g]||{})[k]=el.value;save()}
+
+/* ======================= GRUPO 1: Organizador de Registros ======================= */
+const defPos=sy=>{const d=RT(sy,0);for(let i=11;i>=0;i--)if(["pub","reg","aux"].some(c=>d[c][i].p||d[c][i].c||d[c][i].h))return i;return 11};
+
+R.inf=()=>{
+  if(!S.pubs.length)return NEED("📋");
+  const sy=Y(),ms=SYM(sy);
+  if(F.mp==null||F.mp==="")F.mp=defPos(sy);
+  const mp=+F.mp,m=ms[mp],ix=m.y*12+m.m,d=RT(sy,1),a=d.pub[mp],g=d.reg[mp],x=d.aux[mp];
+  const tot={p:a.p+g.p+x.p,c:a.c+g.c+x.c,h:g.h+x.h};
+  let ac=0,ir=0;
+  S.pubs.forEach(p=>{if(na(p,m.y,m.m))return;if(!irr(p,m.y,m.m))ac++;else if(!inactiveAt(p,ix,false))ir++});
+  const wk=MT(sy).wk[mp],pf=wk.n?r1(wk.t/wk.n):"—";
+  const no=S.pubs.filter(p=>!na(p,m.y,m.m)&&irr(p,m.y,m.m)&&!inactiveAt(p,ix,false))
+    .sort((p,q)=>gl(p.grupo).localeCompare(gl(q.grupo),undefined,{numeric:true})||p.nome.localeCompare(q.nome));
+  const rows=S.pubs.filter(p=>E(p,m.y,m.m)||(!na(p,m.y,m.m)&&!inactiveAt(p,ix,false))).map(p=>{
+    const e=E(p,m.y,m.m)||{},au=yes(e.pr)&&!p.fl.pioneiro;
+    return`<tr><td class="l">${esc(p.nome)}</td><td>${bx(yes(e.pa))}</td><td>${e.c>0?e.c:""}</td><td>${bx(au)}</td><td>${(p.fl.pioneiro||yes(e.pr))&&e.h!=null?e.h:""}</td><td class="l">${esc(e.n||"")}</td></tr>`}).join("");
+  return bar(sel("y","Año de servicio",yo(syL()))+sel("mp","Mes",MO.map((x,i)=>[i,x[0]])),MN[m.m]+" de "+sy)+
+  `<div class="rb"><h2>${MN[m.m]} de ${sy}</h2><div class="w"><table class="dk"><thead><tr><th></th><th>Informan</th><th>Cursos bíblicos</th><th>Horas</th><th>Activos</th><th>Irregulares</th><th>Prom. asist. fin de semana</th></tr></thead><tbody>
+  <tr><td class="l">Publicadores</td>${nc(a.p)}${nc(a.c)}<td>—</td><td rowspan="4" class="k1">${ac}</td><td rowspan="4" class="k2">${ir}</td><td rowspan="4" class="k3">${pf}</td></tr>
+  <tr><td class="l">Precursores Auxiliares</td>${nc(x.p)}${nc(x.c)}${nc(r2(x.h))}</tr>
+  <tr><td class="l">Precursores Regulares</td>${nc(g.p)}${nc(g.c)}${nc(r2(g.h))}</tr>
+  <tr class="tot"><td class="l">Total</td>${nc(tot.p)}${nc(tot.c)}${nc(r2(tot.h))}</tr></tbody></table></div>
+  <h3>Publicadores que no informaron este mes</h3><div class="w"><table class="dk" style="max-width:420px"><thead><tr><th class="l">Nombre</th><th>Grupo</th></tr></thead><tbody>${no.map(p=>`<tr><td class="l">${esc(p.nome)}</td><td>${gl(p.grupo)?"Grupo "+esc(gl(p.grupo)):""}</td></tr>`).join("")}<tr class="tot"><td class="l">Total</td><td>${no.length}</td></tr></tbody></table></div><br>
+  <div class="w"><table><thead><tr><th class="l">Nombre</th><th>Participación</th><th>Cursos</th><th>Aux.</th><th>Horas</th><th class="l">Notas</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="nt">Los publicadores inactivos (6 meses seguidos sin informar) no aparecen, salvo que hayan informado este mes.</div></div>`;
+};
+
+R.asis=()=>{
+  const all=Object.values(S.att);
+  if(!all.length)return NEED("📅");
+  const ys=[...new Set(all.map(e=>e.y))].sort((a,b)=>b-a);
+  if(!ys.includes(+F.ay))F.ay=ys[0];
+  if(!F.am){const l=all.filter(e=>e.y===+F.ay).sort((a,b)=>a.m-b.m||a.d-b.d).pop();F.am=l?l.m:1}
+  const y=+F.ay,m=+F.am;
+  const row=(lbl,w)=>{
+    const li=all.filter(e=>e.y===y&&e.m===m&&!!e.w===!!w).sort((a,b)=>a.d-b.d);
+    let t=0,ns=0,c="";
+    for(let i=0;i<5;i++){
+      const e=li[i];
+      if(e){t+=e.a;ns+=e.n||1;c+=`<td><small>${(e.n>1||!e.d)?(e.n||1)+" reunión(es), total del mes":e.d+"/"+m+"/"+y}</small><br><b class="big2">${e.a}</b></td>`}
+      else c+=`<td><small>(en blanco)</small><br><b class="big2 red">0</b></td>`;
+    }
+    return`<tr><td class="l"><b>${lbl}</b></td>${c}<td><b>${t}</b></td><td><b>${li.length?r1(t/ns):"—"}</b></td></tr>`;
+  };
+  return bar(sel("ay","Año",ys.map(v=>[v,v]))+sel("am","Mes",MS),MN[m]+" "+y)+
+  `<div class="rb"><h2>Informe de Asistencia a las Reuniones</h2><div class="w"><table class="dk"><thead><tr><th></th><th>1ª semana</th><th>2ª semana</th><th>3ª semana</th><th>4ª semana</th><th>5ª semana</th><th>Total</th><th>Promedio</th></tr></thead><tbody>${row("Entre semana",0)}${row("Fin de semana",1)}</tbody></table></div></div>`;
+};
+
+R.preg=()=>{
+  const l=S.pubs.filter(p=>p.fl.pioneiro);
+  if(!l.length||!Object.keys(S.rep).length)return NEED("📊");
+  const sy=Y(),col=(v,t)=>v/t>=1?"#bdf5c2":v/t>=.5?"#fdf3a6":"#f8b7ba",gc=(v,t)=>`<td style="background:${col(v,t)}">${r2(v)}</td>`;
+  const rows=l.map(p=>{
+    const c=SYM(sy).map(x=>{const e=E(p,x.y,x.m);return e&&e.h!=null?e.h:0}),s1=c.slice(0,6).reduce((a,b)=>a+b,0),s2=c.slice(6).reduce((a,b)=>a+b,0);
+    return`<tr><td class="l">${esc(p.nome)}</td>${c.map(v=>gc(v,50)).join("")}${gc(s1,300)}<td>${r2(300-s1)}</td>${gc(s2,300)}<td>${r2(300-s2)}</td>${gc(s1+s2,600)}<td><b>${r2(600-s1-s2)}</b></td></tr>`}).join("");
+  return bar(sel("y","Año de servicio",yo(syL())),l.length+" precursores regulares")+
+  `<div class="rb"><h2>Registro de Precursores Regulares</h2><div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th>${MO.map(x=>`<th>${x[0].slice(0,3)}</th>`).join("")}<th>1 SEM TOTAL</th><th>1 SEM DEFIC</th><th>2 SEM TOTAL</th><th>2 SEM DEFIC</th><th>TOTAL ANUAL</th><th>DEFIC ANUAL</th></tr></thead><tbody>${rows}</tbody></table></div><div class="nt">Meta anual: 600 horas (2 semestres de 300: sep–feb y mar–ago). Un déficit negativo indica que la meta fue superada.</div></div>`;
+};
+
+R.aa=()=>{
+  if(!S.pubs.length)return NEED("📈");
+  const sy=Y(),t=MT(sy),av=a=>{const n=a.reduce((s,r)=>s+r.n,0);return n?Math.round(a.reduce((s,r)=>s+r.t,0)/n):"—"};
+  const m=S.aa[sy]||{};
+  const it=(l,k)=>`<div><div class="nt">${l}</div><input type="text" inputmode="numeric" style="width:110px;font-size:20px;font-weight:800" value="${esc(m[k]||"")}" ${RO?"disabled":""} onchange="setAA(${sy},'${k}',this.value)"></div>`;
+  const sec=(t2,h)=>`<div class="rb"><h2>${t2}</h2><div class="g">${h}</div></div>`;
+  return bar(sel("y","Año de servicio",yo(syL())),"Análisis "+sy)+
+  sec("Promedio de asistencia a las reuniones",`<div><div class="nt">Fin de semana</div><b style="font-size:22px">${av(t.wk)}</b></div><div><div class="nt">Entre semana</div><b style="font-size:22px">${av(t.mid)}</b></div>`)+
+  sec("Totales de la congregación",it("Todos los publicadores activos","activos")+it("Publicadores sordos","sordos")+it("Nuevos publicadores inactivos","inN")+it("Publicadores ciegos","ciegos")+it("Publicadores reactivados","reac")+it("Publicadores encarcelados","enc"))+
+  sec("Territorios abarcados",it("Número total de territorios","ter")+it("Territorios no predicados","nop"))+
+  `<div class="nt">Los campos se llenan a mano y se guardan solos.</div>`;
+};
+
+R.irr=()=>{
+  if(!S.pubs.length)return NEED("⚠");
+  const sy=Y(),ms=SYM(sy);let last=-1;
+  for(let i=11;i>=0&&last<0;i--)if(S.pubs.some(p=>E(p,ms[i].y,ms[i].m)))last=i;
+  const rows=[];
+  if(last>=0){
+    const lix=ms[last].y*12+ms[last].m;
+    S.pubs.forEach(p=>{
+      const f=ms.map((x,i)=>i<=last?(na(p,x.y,x.m)?"na":irr(p,x.y,x.m)):null);
+      let s=0;for(let i=last;i>=0;i--){if(f[i]===true)s++;else break}
+      if(f.some(v=>v===true)&&!inactiveAt(p,lix,true))rows.push({p,f,s});
+    });
+  }
+  rows.sort((a,b)=>b.s-a.s||a.p.nome.localeCompare(b.p.nome));
+  return bar(sel("y","Año de servicio",yo(syL())),rows.length+" irregulares")+
+  `<div class="rb"><h2>Irregulares</h2><div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th>${MO.map(x=>`<th>${x[0].slice(0,3)}.</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr><td class="l">${esc(r.p.nome)}</td>${r.f.map(v=>v==="na"?'<td style="background:#f1efe8;color:#9aa0ad">—</td>':v===null?"<td>—</td>":`<td style="${v?"background:#f6b8bc":""}">${v?"<b>X</b>":""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+  <div class="nt">Irregular: faltó informar al menos un mes desde su inicio (— = aún no aplica por ser nuevo o reactivado). Con 6 meses seguidos sin informar pasa a Inactivos (Organizador S-21 › Inactivos).</div></div>`;
+};
+
+R.pub=()=>{
+  if(!S.pubs.length)return NEED("📃");
+  const l=fil();
+  return bar(sel("g","Grupo",gOpts())+qf(),l.length+" publicadores")+
+  `<div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th><th>Grupo</th><th>Nacimiento</th><th>Bautismo</th></tr></thead><tbody>${l.map(p=>`<tr><td class="l">${esc(p.nome)}</td><td>${p.fl.pioneiro?"Precursor Regular":gl(p.grupo)}</td><td>${fd(p.nasc)}</td><td>${fd(p.bat)}</td></tr>`).join("")}</tbody></table></div>`;
+};
+
+R.grp=()=>{
+  if(!S.pubs.length)return NEED("👥");
+  const gs=grps();
+  return bar("",gs.length+" grupos")+`<div class="g">${gs.map(g=>{
+    const m=S.gm[g]||{},ms=S.pubs.filter(p=>gl(p.grupo)===g),au=k=>ms.filter(p=>p.fl[k]).map(p=>p.nome).join(", ");
+    return`<div class="gc"><b>Grupo ${esc(g)}</b><div>Sup.<input type="text" ${RO?"disabled":""} data-g="${esc(g)}" value="${esc(m.s||au("sup"))}" onchange="setGm(this,'s')">Ayd.<input type="text" ${RO?"disabled":""} data-g="${esc(g)}" value="${esc(m.a||au("ayd"))}" onchange="setGm(this,'a')"></div>${ms.map(p=>`<div>${esc(p.nome)} <b style="color:var(--brass)">${[p.fl.anciao?"(A)":"",p.fl.servo?"(SM)":"",p.fl.pioneiro?"(PR)":""].join("")}</b></div>`).join("")}</div>`}).join("")}</div>`;
+};
+
+/* ======================= GRUPO 2: Organizador S-21 ======================= */
+R.s21=()=>{
+  if(!S.pubs.length)return NEED("🗂");
+  const sy=Y(),names=byGroup(F.g||"",sy);
+  if(F.sn&&!names.some(p=>p.key===F.sn))F.sn="";
+  const l=F.sn?names.filter(p=>p.key===F.sn):names;
+  const card=p=>{
+    const f=p.fl;let th=0,ah=false;
+    const rows=SYM(sy).map(x=>{
+      const e=E(p,x.y,x.m),pm=!!(e&&yes(e.pr)),h=e&&(f.pioneiro||pm)&&e.h!=null?e.h:"";
+      if(h!==""){th+=h;ah=true}
+      return`<tr><td class="mon">${MN[x.m]}</td><td class="c">${bx(e&&yes(e.pa))}</td><td class="c">${e&&e.c>0?e.c:""}</td><td class="c">${bx(pm&&!f.pioneiro)}</td><td class="r">${h}</td><td class="nt2">${esc(e?e.n:"")}</td></tr>`}).join("");
+    return`<div class="s21card"><div class="title">Registro de Publicador de la Congregación</div>
+    <div class="idrow"><span class="lbl">Nombre:</span><span class="val name">${esc(p.nome)}</span></div>
+    <div class="idrow"><span class="lbl">Fecha de nacimiento:</span><span class="val">${esc(fd(p.nasc))}</span><span class="checkline"><span class="chk">${bx(f.homem)} Hombre</span><span class="chk">${bx(f.mulher)} Mujer</span></span></div>
+    <div class="idrow"><span class="lbl">Fecha de bautismo:</span><span class="val">${esc(fd(p.bat))}</span><span class="checkline"><span class="chk">${bx(f.oo)} Otras ovejas</span><span class="chk">${bx(f.ungido)} Ungido</span></span></div>
+    <div class="checkline"><span class="chk">${bx(f.anciao)} Anciano</span><span class="chk">${bx(f.servo)} Siervo ministerial</span><span class="chk">${bx(f.pioneiro)} Precursor regular</span><span class="chk">${bx(false)} Precursor especial</span><span class="chk">${bx(false)} Misionero que sirve en el campo</span></div><hr class="rule">
+    <div class="syline">Año de servicio: <span class="yr">${sy}</span></div>
+    <div class="w"><table class="s21"><thead><tr><th class="cw1">Mes</th><th class="cw2">Participación en el ministerio</th><th class="cw3">Cursos bíblicos</th><th class="cw4">Precursor auxiliar</th><th class="cw5">Horas</th><th>Notas</th></tr></thead><tbody>${rows}<tr class="total"><td class="mon">Total</td><td></td><td></td><td></td><td class="r">${ah?r2(th):""}</td><td></td></tr></tbody></table></div>
+    <div class="foot"><span>S-21-S</span><span>${f.pioneiro?"Precursor regular":"Publicador"}</span></div></div>`;
+  };
+  const nameSel=`<div class="f"><label>Nombre</label><select onchange="F.sn=this.value;go()"><option value="">Todos los seleccionados</option>${names.map(p=>`<option value="${esc(p.key)}"${p.key===F.sn?" selected":""}>${esc(p.nome)}</option>`).join("")}</select></div>`;
+  return unm()+bar(sel("y","Año de servicio",yo(syL()))+sel("g","Grupo",gOpts(),undefined,"F.sn='';")+nameSel,l.length+(l.length===1?" tarjeta":" tarjetas"))+
+  `<div class="cards">${l.map(card).join("")||emp("","Ningún publicador para este filtro.")}</div>`;
+};
+
+const nz=v=>`<td class="num${v?"":" zero"}">${v}</td>`;
+function repT(title,sy,r,au){
+  let th=0;
+  const b=MO.map((x,i)=>{th+=r[i].h;return`<tr><td class="mon">${x[0]}</td>${nz(r[i].p)}${nz(r[i].c)}${au?nz(r[i].a):"<td></td>"}${nz(r2(r[i].h))}<td></td></tr>`}).join("");
+  return`<div class="repblock"><h2>${title}</h2><div class="w"><table class="rep"><thead><tr><th style="width:16%">Año de servicio<span class="sy">${sy}</span></th><th style="width:16%">Participación<br>en el ministerio</th><th style="width:14%">Cursos<br>bíblicos</th><th style="width:14%">Precursor<br>auxiliar</th><th style="width:13%">Horas</th><th>Notas</th></tr></thead><tbody>${b}<tr class="total"><td class="tlabel" colspan="4">Total</td><td class="tval">${r2(th)}</td><td></td></tr></tbody></table></div></div>`;
+}
+R.rel=()=>{
+  if(!Object.keys(S.rep).length)return NEED("📊");
+  const sy=Y(),so=F.so==="1",d=RT(sy,so);
+  const mx=c=>Math.max(...d[c].map(r=>r.p));
+  return bar(sel("y","Año de servicio",yo(syL()))+`<label class="switch"><input type="checkbox" ${so?"checked":""} onchange="F.so=this.checked?'1':'0';go()"> Contar solo quien participó (sí)</label>`,`Pico en el año: ${mx("pub")} publicadores · ${mx("reg")} precursores · ${mx("aux")} auxiliares`)+
+  repT("Registro de Publicadores",sy,d.pub,false)+repT("Registro de Precursores Regulares",sy,d.reg,false)+repT("Registro de Precursores Auxiliares",sy,d.aux,true);
+};
+
+const DES=["domingo","lunes","martes","miercoles","jueves","viernes","sabado"];
+const DPT=["domingo","segunda-feira","terca-feira","quarta-feira","quinta-feira","sexta-feira","sabado"];
+const DNAME=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+function anomalies(years){
+  const list=[],all=[];
+  Object.values(S.att).forEach(e=>{
+    const sy=e.m>=9?e.y+1:e.y;
+    if(!years.includes(sy)||!e.d)return;
+    all.push(e);
+    if(!e.tx)return;
+    const w=norm(e.tx).split(",")[0],real=new Date(Date.UTC(e.y,e.m-1,e.d)).getUTCDay(),iE=DES.indexOf(w),iP=DPT.indexOf(w);
+    if(iE<0&&iP<0)return;
+    if(iE>=0?iE!==real:iP!==real)list.push(`&ldquo;${esc(e.tx)}&rdquo; &mdash; esa fecha cayó en <b>${DNAME[real]}</b>`);
+  });
+  all.sort((a,b)=>Date.UTC(a.y,a.m-1,a.d)-Date.UTC(b.y,b.m-1,b.d));
+  for(let i=1;i<all.length;i++){
+    const p=all[i-1],c=all[i];
+    if(!!p.w!==!!c.w)continue;
+    const diff=(Date.UTC(c.y,c.m-1,c.d)-Date.UTC(p.y,p.m-1,p.d))/864e5;
+    if(diff>=1&&diff<=2){
+      const t1=p.tx||(p.d+"/"+p.m+"/"+p.y),t2=c.tx||(c.d+"/"+c.m+"/"+c.y);
+      list.push(`&ldquo;${esc(t1)}&rdquo; (${p.a}) y &ldquo;${esc(t2)}&rdquo; (${c.a}) &mdash; dos reuniones del mismo tipo en días seguidos`);
+    }
+  }
+  return list;
+}
+function s88Table(sy,rows){
+  const avgs=[];
+  const body=MO.map((m,i)=>{
+    const r=rows[i];
+    if(!r.n)return`<tr><td class="mon">${m[0]}</td><td class="num dash">&mdash;</td><td class="num dash">&mdash;</td><td class="num dash">&mdash;</td></tr>`;
+    const av=r.t/r.n;avgs.push(av);
+    return`<tr><td class="mon">${m[0]}</td><td class="num">${r.n}</td><td class="num">${r.t}</td><td class="num">${r1(av)}</td></tr>`;
+  }).join("");
+  const media=avgs.length?r1(avgs.reduce((a,b)=>a+b,0)/avgs.length):"";
+  return`<table class="s88"><thead><tr><th style="width:30%">Año de servicio<span class="sy">${sy}</span></th><th style="width:20%">Número de<br>reuniones</th><th style="width:23%">Asistencia<br>total</th><th style="width:27%">Promedio de<br>asistencia semanal</th></tr></thead><tbody>${body}<tr class="avg"><td class="lbl" colspan="3">Promedio de asistencia mensual</td><td class="num">${media}</td></tr></tbody></table>`;
+}
+const s88Sheet=sy=>{const t=MT(sy);return`<div class="s88pair"><div><div class="kind">Reunión de entre semana</div>${s88Table(sy,t.mid)}</div><div><div class="kind">Reunión del fin de semana</div>${s88Table(sy,t.wk)}</div></div>`};
+R.reu=()=>{
+  const a=atL();
+  if(!a.length)return NEED("📅");
+  const sy=a.includes(+F.y)?+F.y:a[0],prev=sy-1,tot=MT(sy);
+  const nM=tot.mid.reduce((s,r)=>s+r.n,0),nW=tot.wk.reduce((s,r)=>s+r.n,0);
+  const an=anomalies([sy,prev]);
+  const warn=an.length?`<div class="wn"><b>${an.length} registro(s) para revisar en la planilla</b><ul style="margin:6px 0 0;padding-left:20px">${an.map(x=>`<li>${x}</li>`).join("")}</ul><div style="margin-top:6px">Los números de abajo cuentan estos registros como reuniones separadas. Al corregir la planilla y recargarla, el cuadro se ajusta solo.</div></div>`:"";
+  return bar(sel("y","Año de servicio",yo(a),sy),`${sy}: ${nM} reuniones de entre semana · ${nW} de fin de semana`)+warn+
+  `<div class="s88sheet"><div class="title">Registro de Asistencia a las Reuniones de Congregación</div>${s88Sheet(sy)}<div style="height:14px"></div>${s88Sheet(prev)}<div class="foot"><span>S-88-S</span></div></div>`;
+};
+
+R.ina=()=>{
+  if(!S.pubs.length)return NEED("📋");
+  const b=bnd();
+  if(b.mx<0)return NEED("📋");
+  const g=F.ig||"",last={};
+  for(const k in S.rep){if(yes(S.rep[k].pa)){const a=k.split("|"),i=+a[1]*12+ +a[2];if(last[a[0]]==null||i>last[a[0]])last[a[0]]=i}}
+  const t=ymOf(b.mx);
+  const rows=byGroup(g,0).map(p=>({p,s:streak(p,b.mx,true),li:last[p.key]==null?null:last[p.key]}))
+    .filter(r=>r.s>=6||(r.p.sit===false&&!rea(r.p,t.y,t.m)))
+    .sort((a,c)=>c.s-a.s||a.p.nome.localeCompare(c.p.nome));
+  const ml=i=>{if(i==null)return"Nunca reportó";const q=ymOf(i);return MN[q.m]+" "+q.y};
+  const tag=p=>p.fl.pioneiro?'<span class="tag">Precursor Regular</span>':(gl(p.grupo)?`<span class="tag">Grupo ${esc(gl(p.grupo))}</span>`:"");
+  return bar(`<div class="f"><label>Grupo</label><select onchange="F.ig=this.value;go()">${opt(gOpts(false),g)}</select></div>`,rows.length+(rows.length===1?" inactivo":" inactivos"))+
+  `<div class="wn">Se considera inactivo a quien lleva 6 meses seguidos o más sin reportar participación (hasta ${MN[t.m]} ${t.y}, el último mes con datos), o quien tiene 0 en la columna “Situación” de la lista de publicadores.</div>`+
+  (rows.length?`<div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th><th>Grupo</th><th>Último mes reportado</th><th>Meses sin reportar</th><th>Nacimiento</th><th>Bautismo</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="l">${esc(r.p.nome)}</td><td>${tag(r.p)}</td><td>${esc(ml(r.li))}</td><td>${r.s}</td><td>${fd(r.p.nasc)}</td><td>${fd(r.p.bat)}</td></tr>`).join("")}</tbody></table></div>`:emp("✅","Ningún publicador inactivo con ese filtro."));
+};
+/* ======================= Excel ======================= */
+function rdWb(f,cb){
+  if(typeof XLSX==="undefined")return alert("No se pudo cargar la librería de Excel. Abre la app una vez con internet y vuelve a intentar.");
+  const r=new FileReader;
+  r.onload=e=>{try{cb(XLSX.read(new Uint8Array(e.target.result),{type:"array"}))}catch(x){alert("Error al leer el archivo: "+x.message)}};
+  r.readAsArrayBuffer(f);
+}
+function pick(wb,nd){
+  for(const n of wb.SheetNames){
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,raw:true,defval:null});
+    for(let i=0;i<Math.min(rows.length,5);i++){
+      const h=hmap(rows[i]||[]),k=Object.keys(h);
+      if(nd.every(d=>k.some(x=>x.includes(d))))return{rows,i,h};
+    }
+  }
+  return null;
+}
+function after(k,f){S.files[k]=f.name;save();go()}
+function lPub(f){
+  if(RO||!f)return;
+  rdWb(f,wb=>{
+    const z=pick(wb,["nom","grupo"]);
+    if(!z)return alert("No encontré la hoja de Publicadores (columnas Nombre y Grupo).");
+    const h=z.h,c={n:fc(h,"nome","nombre"),g:fc(h,"grupo"),na:fc(h,"nascimento","nacimiento"),b:fc(h,"batismo","bautismo"),ho:fc(h,"homem","hombre"),mu:fc(h,"mulher","mujer"),an:fc(h,"anciao","anciano","ancia"),oo:fc(h,"o.o.","oo","otras","outras"),un:fc(h,"ungido"),se:fc(h,"servo","siervo"),pi:fc(h,"pioneiro regular","precursor regular","pioneiro","precursor"),si:fc(h,"situacao","situacion"),su:fc(h,"superintendente de grupo","superintendente"),ay:fc(h,"auxiliar de grupo","ayudante de grupo","ajudante de grupo","ayudante","ajudante")},o=[];
+    for(let i=z.i+1;i<z.rows.length;i++){
+      const r=z.rows[i];if(!r||r[c.n]==null||!String(r[c.n]).trim())continue;
+      const g=k=>c[k]>=0&&one(r[c[k]]),sv=c.si>=0?r[c.si]:null;
+      o.push({nome:String(r[c.n]).trim(),key:nk(r[c.n]),grupo:c.g>=0?r[c.g]:null,nasc:c.na>=0?r[c.na]:"",bat:c.b>=0?r[c.b]:"",sit:sv==null||sv===""?null:one(sv),fl:{homem:g("ho"),mulher:g("mu"),anciao:g("an"),oo:g("oo"),ungido:g("un"),servo:g("se"),pioneiro:g("pi"),sup:g("su"),ayd:g("ay")}});
+    }
+    o.sort((a,b)=>a.nome.localeCompare(b.nome,"es"));S.pubs=o;after("pub",f);
+  });
+}
+function lRep(f){
+  if(RO||!f)return;
+  rdWb(f,wb=>{
+    const z=pick(wb,["publicador"]);
+    if(!z)return alert("No encontré la hoja del Informe de predicación (columna Publicador).");
+    const h=z.h,c={p:fc(h,"publicador"),a:fc(h,"ano","año"),m:fc(h,"mes"),pr:fc(h,"precursor auxiliar","auxiliar o regular","auxiliar"),pa:fc(h,"particip"),h:fc(h,"horas"),c:fc(h,"cursos biblicos","diferentes cursos","cursos","estudios biblicos","estudos biblicos"),n:fc(h,"comentario"),t:fc(h,"marca temporal","marca","carimbo","timestamp")},o=Object.assign({},S.rep);
+    for(let i=z.i+1;i<z.rows.length;i++){
+      const r=z.rows[i];if(!r||r[c.p]==null||!String(r[c.p]).trim())continue;
+      const mi=MI[norm(r[c.m])],an=num(r[c.a]);if(!mi||!an)continue;
+      const k=nk(r[c.p])+"|"+Math.round(an)+"|"+mi,e={nm:String(r[c.p]).trim(),pr:c.pr>=0?r[c.pr]:null,pa:c.pa>=0?r[c.pa]:null,h:c.h>=0?num(r[c.h]):null,c:c.c>=0?num(r[c.c]):null,n:c.n>=0?r[c.n]||"":"",t:c.t>=0?tsv(r[c.t]):0};
+      if(!o[k]||(!o[k].x&&e.t>=o[k].t))o[k]=e;
+    }
+    S.rep=o;after("rep",f);
+  });
+}
+function pDate(v){
+  if(v==null||v==="")return null;
+  if(typeof v==="number"){const d=new Date(Math.round((v-25569)*864e5)),w=d.getUTCDay();return{y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),w:w===0||w===6}}
+  const s=norm(v).replace(/\.$/,""),a=s.match(/^([a-z\-]+)\s*,\s*(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/),b=s.match(/(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})/),c=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+  let wd="",d,m,y;
+  if(a){wd=a[1];d=+a[2];m=MI[a[3]];y=+a[4]}else if(b){d=+b[1];m=MI[b[2]];y=+b[3]}else if(c){d=+c[1];m=+c[2];y=+c[3]}else return null;
+  if(!m)return null;
+  const w=/sabado|domingo/.test(wd)?true:wd?false:[0,6].includes(new Date(Date.UTC(y,m-1,d)).getUTCDay());
+  return{y,m,d,w};
+}
+function lAtt(f){
+  if(RO||!f)return;
+  rdWb(f,wb=>{
+    const z=pick(wb,["reuni"]);
+    if(!z)return alert("No encontré la hoja de Asistencias (fecha de la reunión y asistencia).");
+    const h=z.h,c={d:fc(h,"data da reuniao","fecha de la reunion","reuni","fecha","data"),a:fc(h,"asistencia total","assistencia total","asistencia","assistencia","total"),t:fc(h,"carimbo","marca temporal","timestamp"),nr:fc(h,"numero de reuniones"),tp:fc(h,"tipo")},o=Object.assign({},S.att);
+    for(let i=z.i+1;i<z.rows.length;i++){
+      const r=z.rows[i];if(!r)continue;
+      const d=pDate(r[c.d]),a=num(r[c.a]);if(!d||a==null)continue;
+      const w=c.tp>=0&&r[c.tp]?(/fin|sab|dom/.test(norm(r[c.tp]))?1:0):(d.w?1:0),k=d.y+"-"+d.m+"-"+d.d+"-"+w;
+      const e={y:d.y,m:d.m,d:d.d,w,a,n:c.nr>=0?(num(r[c.nr])||1):1,t:c.t>=0?tsv(r[c.t]):0,tx:typeof r[c.d]==="string"?r[c.d].trim():""};
+      if(!o[k]||(!o[k].x&&e.t>=o[k].t))o[k]=e;
+    }
+    S.att=o;after("att",f);
+  });
+}
+
+/* ======================= Registrar (dentro de Configuración) ======================= */
+function regFill(){
+  const e=S.rep[nk($("rn").value)+"|"+(+$("ry").value)+"|"+$("rm").value];
+  $("rp").value=e&&!yes(e.pa)?"No":"Sí";$("ra").value=e&&yes(e.pr)?"Sí":"No";
+  $("rh").value=e&&e.h!=null?e.h:"";$("rc").value=e&&e.c!=null?e.c:"";$("rt").value=e?e.n||"":"";
+  $("rs").textContent=e?"Ya existe un informe de este mes: puedes corregirlo.":"";
+}
+function regSave(){
+  const nm=$("rn").value.trim(),y=+$("ry").value,m=+$("rm").value;
+  if(!nm||!(y>1900&&y<2100))return alert("Escribe el nombre del publicador y un año válido.");
+  S.rep[nk(nm)+"|"+y+"|"+m]={nm,pa:$("rp").value,pr:$("ra").value,h:num($("rh").value),c:num($("rc").value),n:$("rt").value,t:Date.now(),x:1};
+  save();
+  let m2=m+1,y2=y;if(m2>12){m2=1;y2++}
+  $("rm").value=m2;$("ry").value=y2;regFill();
+  $("rs").textContent="✓ Guardado: "+MN[m]+" "+y+". Listo para el mes siguiente.";
+}
+function regDel(){
+  const k=nk($("rn").value)+"|"+(+$("ry").value)+"|"+$("rm").value;
+  if(!S.rep[k])return alert("No hay informe guardado para ese mes.");
+  if(!confirm("¿Eliminar este informe?"))return;
+  delete S.rep[k];save();regFill();$("rs").textContent="Informe eliminado.";
+}
+const attM=(y,m,w)=>Object.entries(S.att).filter(([k,e])=>e.y===y&&e.m===m&&!!e.w===!!w);
+function atAvg(){const n=num($("an").value),t=num($("ai").value);$("ap").textContent=n>0&&t!=null?r1(t/n):"—"}
+function atFill(){
+  const l=attM(+$("ay2").value,+$("am2").value,$("aw").value==="1");
+  $("an").value=l.length?l.reduce((s,x)=>s+(x[1].n||1),0):"";
+  $("ai").value=l.length?l.reduce((s,x)=>s+x[1].a,0):"";
+  atAvg();$("as").textContent=l.length?"Ya hay datos de este mes: puedes corregirlos.":"";
+}
+function atSave(){
+  const y=+$("ay2").value,m=+$("am2").value,w=$("aw").value==="1"?1:0,n=num($("an").value),t=num($("ai").value);
+  if(!(y>1900&&y<2100)||!(n>0)||t==null)return alert("Escribe el año, el número de reuniones y la asistencia total.");
+  attM(y,m,!!w).forEach(x=>delete S.att[x[0]]);
+  S.att[y+"-"+m+"-0-"+w]={y,m,d:0,w,a:t,n,t:Date.now(),x:1,tx:""};
+  save();$("as").textContent="✓ Guardado: "+MN[m]+" "+y+" · promedio semanal "+r1(t/n);
+}
+function atDel(){
+  const l=attM(+$("ay2").value,+$("am2").value,$("aw").value==="1");
+  if(!l.length)return alert("No hay datos de ese mes y tipo.");
+  if(!confirm("¿Eliminar la asistencia de este mes?"))return;
+  l.forEach(x=>delete S.att[x[0]]);save();atFill();$("as").textContent="Asistencia eliminada.";
+}
+const iniList=()=>{
+  const l=Object.values(S.ini);
+  return l.length?`<div class="w"><table><thead><tr><th class="l">Publicador</th><th>Tipo</th><th>Desde</th></tr></thead><tbody>${l.map(v=>`<tr><td class="l">${esc(v.nm)}</td><td>${v.t==="r"?"Reactivado":"Nuevo"}</td><td>${MN[v.m]} ${v.y}</td></tr>`).join("")}</tbody></table></div>`:"";
+};
+function iniFill(){
+  const v=S.ini[nk($("ip").value)];
+  if(v){$("it").value=v.t;$("iy").value=v.y;$("im").value=v.m}
+  $("is").textContent=v?"Ya tiene fecha de inicio: puedes corregirla.":"";
+}
+function iniSave(){
+  const nm=$("ip").value.trim(),y=+$("iy").value,m=+$("im").value;
+  if(!nm||!(y>1900&&y<2100))return alert("Escribe el nombre y un año válido.");
+  S.ini[nk(nm)]={nm,t:$("it").value,y,m};save();
+  $("is").textContent="✓ Guardado: cuenta desde "+MN[m]+" "+y+". Los meses anteriores ya no cuentan como faltas.";
+  $("il").innerHTML=iniList();
+}
+function iniDel(){
+  const k=nk($("ip").value);
+  if(!S.ini[k])return alert("Esa persona no tiene fecha de inicio.");
+  if(!confirm("¿Quitar la fecha de inicio?"))return;
+  delete S.ini[k];save();$("is").textContent="Fecha de inicio eliminada.";$("il").innerHTML=iniList();
+}
+function plantilla(){
+  if(typeof XLSX==="undefined")return alert("No se pudo cargar la librería de Excel.");
+  const wb=XLSX.utils.book_new(),A=(d,n)=>XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d),n);
+  A([["Publicador","Año","Mes","Participó","Precursor auxiliar","Horas","Cursos bíblicos","Comentarios"],["Nombre Apellido",2005,"Septiembre","Sí","No","",1,""]],"Informes");
+  A([["Fecha de la reunión","Asistencia total"],["domingo, 4 de septiembre de 2005",85]],"Asistencias");
+  XLSX.writeFile(wb,"plantilla_historica.xlsx");
+}
+
+/* ======================= Perfiles, copias y compartir ======================= */
+function mk(name,data,ro){
+  const p={id:uid(),name,ro:!!ro};PR.push(p);lsSet(KP,PR);lsSet(KD+p.id,data);sw(p.id);
+}
+const nuevo=()=>{const n=prompt("Nombre del nuevo perfil (por ejemplo, el de otra persona):");if(n&&n.trim())mk(n.trim(),blank())};
+const renom=()=>{const n=prompt("Nuevo nombre:",P.name);if(n&&n.trim()){P.name=n.trim();lsSet(KP,PR);fillProfiles();go()}};
+function elim(){
+  if(!confirm("¿Eliminar el perfil “"+P.name+"” y todos sus datos? Esto no se puede deshacer."))return;
+  try{localStorage.removeItem(KD+P.id)}catch(e){}
+  PR=PR.filter(p=>p.id!==P.id);lsSet(KP,PR);try{localStorage.removeItem(KC)}catch(e){}
+  clearTimeout(saveT);saveT=null;load();go();
+}
+const vaciar=()=>{if(!confirm("¿Borrar todos los datos de este perfil?"))return;S=blank();BND=null;save();flush();go()};
+const editable=()=>{P.ro=false;lsSet(KP,PR);load();go()};
+const stamp=()=>new Date().toISOString().slice(0,10);
+const slug=s=>String(s).replace(/\W+/g,"_");
+const cp=()=>{const n="respaldo_"+slug(P.name)+"_"+stamp()+".json";return{n,f:new File([JSON.stringify({app:"orp",v:2,name:P.name,date:new Date().toISOString(),data:S})],n,{type:"application/json"})}};
+async function sendF(f){
+  if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f],title:f.name});return}catch(e){if(e.name==="AbortError")return}}
+  dl(f);
+}
+function dl(f){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
+const compartir=()=>sendF(cp().f);
+const bajar=()=>dl(cp().f);
+
+/* Guarda SOLO el Organizador S-21 (tarjetas, informe de publicadores, S-88 e inactivos) con los datos incrustados */
+function guardarHtml(){
+  if(!hasD())return;
+  const c=document.documentElement.cloneNode(true);
+  ["nv","gn","mn","ps"].forEach(i=>{const e=c.querySelector("#"+i);if(e)e.innerHTML=""});
+  c.querySelector("#sv").textContent="";
+  c.querySelector("#bn").classList.add("hidden");
+  c.querySelector("body").className="";
+  c.querySelectorAll("script[src]").forEach(s=>s.remove());
+  c.querySelectorAll('link[rel="manifest"],link[rel="icon"],link[rel="apple-touch-icon"]').forEach(s=>s.remove());
+  const o=c.querySelector("#orp-embed");if(o)o.remove();
+  const data={pubs:S.pubs,rep:S.rep,att:S.att,ini:S.ini,files:S.files};
+  const t=document.createElement("script");
+  t.id="orp-embed";t.type="application/json";
+  t.textContent=JSON.stringify({only:"s21",name:P.name,date:new Date().toISOString(),data}).replace(/</g,"\\u003c");
+  c.querySelector("body").prepend(t);
+  sendF(new File(["<!DOCTYPE html>\n"+c.outerHTML],"organizador_s21_"+slug(P.name)+"_"+stamp()+".html",{type:"text/html"}));
+}
+
+/* Convierte copias de las versiones anteriores */
+function conv(d){
+  if(d.rep&&Array.isArray(d.rep)){
+    const n=blank();
+    n.pubs=(d.pubs||[]).map(p=>({nome:p.nome,key:nk(p.nome),grupo:p.grupo,nasc:p.nasc,bat:p.bat,sit:p.situacao==null?null:p.situacao,fl:Object.assign({},p.flags,{sup:(p.flags||{}).supGrupo,ayd:(p.flags||{}).aydGrupo})}));
+    d.rep.forEach(([k,e])=>{const q=k.split("|");n.rep[nk(q[0])+"|"+q[1]+"|"+q[2]]={pr:e.prec,pa:e.particip,h:e.horas,c:e.cursos,n:e.coment||"",t:0}});
+    (d.att||[]).forEach(a=>n.att[a[0]+"-"+a[1]+"-"+a[2]+"-"+a[3]]={y:a[0],m:a[1],d:a[2],w:a[3],a:a[4],n:a[6]||1,tx:a[5]||"",t:0});
+    const x=d.aaManual||{};
+    for(const y in x){const m=x[y];n.aa[y]={activos:m.activos,sordos:m.sordos,inN:m.inactivosNuevos,ciegos:m.ciegos,reac:m.reactivados,enc:m.encarcelados,ter:m.territorios,nop:m.noPredicados}}
+    for(const g in d.groupsManual||{})n.gm[g]={s:d.groupsManual[g].sup,a:d.groupsManual[g].ayd};
+    n.files=d.fileNames||{};
+    return n;
+  }
+  return Object.assign(blank(),d);
+}
+function importar(f){
+  if(!f)return;
+  const r=new FileReader;
+  r.onload=e=>{
+    try{
+      const j=JSON.parse(e.target.result),d=j.app==="orp"?j.data:j;
+      if(!d||(!d.pubs&&!d.att&&!d.rep))throw 0;
+      const who=j.name||j.owner||"otra persona";
+      const ro=confirm("Copia recibida de “"+who+"”.\n\nAceptar = abrir SOLO PARA CONSULTAR (no se puede modificar).\nCancelar = abrir como copia EDITABLE.");
+      mk((j.name||j.owner||"Importado")+" (copia)",conv(d),ro);
+      alert(ro?"Copia abierta en modo consulta.":"Copia abierta como perfil editable.");
+    }catch(x){alert("El archivo no parece ser una copia válida de esta aplicación.")}
+  };
+  r.readAsText(f);
+}
+
+/* ======================= Instalar / actualizar ======================= */
+addEventListener("beforeinstallprompt",e=>{e.preventDefault();DP=e;if(TAB==="cfg")go()});
+const inst=async()=>{
+  if(DP){DP.prompt();DP=null;go()}
+  else alert("En iPhone/iPad (Safari): botón Compartir → “Agregar a pantalla de inicio”.\nEn Android o PC (Chrome/Edge): menú ⋮ → “Instalar aplicación”.");
+};
+const buscar=async()=>{
+  if(!REG)return alert("El modo sin conexión no está activo. Abre la app desde su dirección web (https).");
+  await REG.update();
+  setTimeout(()=>{if(!REG.waiting&&!REG.installing)alert("Ya tienes la última versión.")},1500);
+};
+const upd=()=>{if(REG&&REG.waiting)REG.waiting.postMessage("SKIP");else location.reload()};
+
+/* ======================= Configuración ======================= */
+const ldBox=(i,t,k,fn)=>`<div class="box"><b>${i} ${t}</b><div class="nt">${S.files[k]?"Cargado: "+esc(S.files[k]):"Ningún archivo cargado"}</div><label class="a">Cargar Excel<input type="file" accept=".xlsx,.xls" hidden onchange="${fn}(this.files[0]);this.value=''"></label></div>`;
+const fl=(l,h)=>`<div class="f"><label>${l}</label>${h}</div>`;
+
+function cfgReg(){
+  const n=new Date(),yn=i=>`<select id="${i}"><option>Sí</option><option>No</option></select>`;
+  return`<div class="box"><b>✍ Agregar o corregir un informe mensual</b><div class="nt">Para actividad que no está en el formulario de Google (por ejemplo, años anteriores). Usa el año calendario real: septiembre de 2005 = año 2005. Si el publicador y mes ya existen, se corrige. Tras guardar, avanza solo al mes siguiente.</div>
+  <div class="frow">${fl("Publicador",`<input type="text" id="rn" list="dl" autocomplete="off" onchange="regFill()"><datalist id="dl">${S.pubs.map(p=>`<option value="${esc(p.nome)}">`).join("")}</datalist>`)}${fl("Año",`<input type="text" inputmode="numeric" id="ry" value="${n.getFullYear()}" style="min-width:0;width:90px" onchange="regFill()">`)}${fl("Mes",`<select id="rm" onchange="regFill()">${opt(MS,n.getMonth()+1)}</select>`)}${fl("Participó",yn("rp"))}${fl("Precursor auxiliar",yn("ra"))}${fl("Horas",`<input type="text" inputmode="decimal" id="rh" style="min-width:0;width:80px">`)}${fl("Cursos bíblicos",`<input type="text" inputmode="numeric" id="rc" style="min-width:0;width:80px">`)}${fl("Notas",`<input type="text" id="rt">`)}</div>
+  <button class="a" onclick="regSave()">Guardar informe</button><button class="a d" onclick="regDel()">Eliminar</button><div class="nt" id="rs"></div></div>
+  <div class="box"><b>🆕 Nuevo publicador o reactivación</b><div class="nt">Anota desde qué mes debe informar. Los meses anteriores no cuentan como faltas (se muestran con “—” en Irregulares) y la persona sale de Inactivos si estaba allí. Los informes anteriores se conservan. No se pisa al recargar los Excel.</div>
+  <div class="frow">${fl("Publicador",`<input type="text" id="ip" list="dl" autocomplete="off" onchange="iniFill()">`)}${fl("Tipo",`<select id="it"><option value="n">Nuevo publicador</option><option value="r">Reactivado</option></select>`)}${fl("Mes",`<select id="im">${opt(MS,n.getMonth()+1)}</select>`)}${fl("Año",`<input type="text" inputmode="numeric" id="iy" value="${n.getFullYear()}" style="min-width:0;width:90px">`)}</div>
+  <button class="a" onclick="iniSave()">Guardar</button><button class="a d" onclick="iniDel()">Quitar fecha</button><div class="nt" id="is"></div><div id="il">${iniList()}</div></div>
+  <div class="box"><b>📅 Asistencia a las reuniones (total del mes)</b><div class="nt">Igual que la tarjeta S-88: escribe el número de reuniones y la asistencia total del mes. El promedio semanal se calcula solo. Si ya había datos de ese mes y tipo, se reemplazan.</div>
+  <div class="frow">${fl("Año",`<input type="text" inputmode="numeric" id="ay2" value="${n.getFullYear()}" style="min-width:0;width:90px" onchange="atFill()">`)}${fl("Mes",`<select id="am2" onchange="atFill()">${opt(MS,n.getMonth()+1)}</select>`)}${fl("Tipo de reunión",`<select id="aw" onchange="atFill()"><option value="0">Entre semana</option><option value="1">Fin de semana</option></select>`)}${fl("N.º de reuniones",`<input type="text" inputmode="numeric" id="an" style="min-width:0;width:90px" oninput="atAvg()">`)}${fl("Asistencia total",`<input type="text" inputmode="numeric" id="ai" style="min-width:0;width:110px" oninput="atAvg()">`)}${fl("Promedio semanal (automático)",`<b id="ap" style="font-size:20px;padding:6px 0">—</b>`)}</div>
+  <button class="a" onclick="atSave()">Guardar asistencia</button><button class="a d" onclick="atDel()">Eliminar</button><div class="nt" id="as"></div></div>`;
+}
+function cfgDatos(){
+  const first=!hasD()?`<div class="ok">👋 <b>Bienvenido.</b> Para empezar, carga tus tres planillas de Excel (o escribe los datos en <b>✍ Registrar</b>). Todo se guarda solo en este dispositivo.</div>`:"";
+  return first+`<div class="box"><b>👤 Perfil activo: ${esc(P.name)}</b><div class="nt">Cada perfil guarda sus propios datos en este dispositivo. Los cambios se guardan solos.</div><button class="a" onclick="nuevo()">+ Nuevo perfil</button><button class="a" onclick="renom()">Renombrar</button><button class="a d" onclick="elim()">Eliminar perfil</button></div>`+
+  (RO?`<div class="wn">👁 Este perfil está en <b>modo consulta</b>: puedes examinar los datos pero no modificarlos. <button class="a" onclick="editable()">Convertir en editable</button></div>`:
+  ldBox("📃","Publicadores.xlsx","pub","lPub")+ldBox("✉","Informe de predicación.xlsx","rep","lRep")+ldBox("📅","Asistencias a las reuniones.xlsx","att","lAtt")+
+  `<div class="box"><b>📚 Datos históricos (por ejemplo, desde 2005)</b><div class="nt">Cargar un Excel <u>suma</u> sus datos a los que ya tienes; no borra los anteriores. Puedes cargar primero el Excel del formulario de Google y luego otro con tus años anteriores, o escribir los datos en la sección ✍ Registrar. Lo escrito a mano nunca se pisa al recargar un Excel. Si un mismo mes aparece dos veces, vale el más reciente.</div><button class="a" onclick="plantilla()">Descargar plantilla Excel</button></div>
+  <div class="box"><b>🗑 Zona de borrado</b><div class="nt">Vacía este perfil (por ejemplo, para empezar de cero).</div><button class="a d" onclick="vaciar()">Limpiar datos del perfil</button></div>`);
+}
+function cfgCopia(){
+  const d=hasD()?"":"disabled";
+  return`<div class="box"><b>📤 Copia de seguridad y compartir datos</b><div class="nt">Genera un archivo .json con todos los datos de este perfil. Sirve como respaldo, para pasar tus datos a otro dispositivo o para que otra persona los examine en modo consulta con “Importar copia”.</div>
+  <button class="a" onclick="compartir()" ${d}>Compartir copia</button><button class="a" onclick="bajar()" ${d}>Descargar copia</button>
+  <label class="a">📥 Importar copia<input type="file" accept=".json,application/json" hidden onchange="importar(this.files[0]);this.value=''"></label>
+  <div class="nt">Importar nunca borra tus datos: crea un perfil nuevo. También acepta copias .json de las versiones anteriores de ambas apps.</div></div>
+  <div class="box"><b>💾 Guardar HTML del Organizador S-21</b><div class="nt">Crea un archivo .html que trae incorporados los datos y solo las funciones del Organizador S-21 (Tarjetas S-21, Informe de Publicadores, Reuniones S-88 e Inactivos). Se abre en cualquier navegador sin instalar nada, en modo consulta, y permite imprimir.</div>
+  <button class="a pr" onclick="guardarHtml()" ${d}>💾 Guardar HTML del S-21</button>
+  <div class="nt"><b>Privacidad:</b> ese archivo contiene nombres y fechas de personas. Compártelo solo con quien corresponda y no lo subas a un sitio público.</div></div>`;
+}
+function cfgApp(){
+  return`<div class="box"><b>📲 Aplicación</b><div class="nt">Versión 1.0 · funciona sin conexión una vez instalada. Tus datos viven solo en este dispositivo y navegador: nadie más puede verlos.</div>
+  <button class="a" onclick="inst()">Instalar app</button><button class="a" onclick="buscar()">Buscar actualización</button></div>
+  <div class="box"><b>🔒 Dónde se guardan tus datos</b><div class="nt">Se guardan automáticamente en el almacenamiento de este navegador. Si borras los datos del navegador o desinstalas la app, se pierden: haz una copia en “Copias y compartir” de vez en cuando.</div></div>`;
+}
+R.cfg=()=>{
+  const subs=[["reg","✍ Registrar"],["datos","📂 Datos y perfil"],["copia","📤 Copias y compartir"],["app","📲 Aplicación"]].filter(x=>!(RO&&x[0]==="reg"));
+  let cs=F.cs||(hasD()&&!RO?"reg":"datos");
+  if(!subs.some(x=>x[0]===cs))cs="datos";
+  const nav=`<div class="seg">${subs.map(x=>`<button class="${x[0]===cs?"on":""}" onclick="F.cs='${x[0]}';go()">${x[1]}</button>`).join("")}</div>`;
+  return nav+({reg:cfgReg,datos:cfgDatos,copia:cfgCopia,app:cfgApp}[cs])();
+};
+
+/* ======================= Navegación ======================= */
+const GROUPS=[["reg","Organizador de Registros"],["s21","Organizador S-21"]];
+const TABS={
+  reg:[["inf","Informes"],["asis","Asistencia"],["preg","Precursores"],["aa","Análisis de la congregación"],["irr","Irregulares"],["pub","Lista de publicadores"],["grp","Grupos"],["cfg","⚙ Configuración"]],
+  s21:[["s21","Tarjetas S-21"],["rel","Informe de Publicadores"],["reu","Reuniones (S-88)"],["ina","Inactivos"]]
+};
+const LAST={reg:"inf",s21:"s21"};
+function setGr(g){LAST[GR]=TAB;GR=g;TAB=LAST[g];go();scrollTo(0,0)}
+function setTab(t){TAB=t;go();scrollTo(0,0)}
+function go(){
+  const tabs=TABS[GR];
+  if(!tabs.some(t=>t[0]===TAB))TAB=tabs[0][0];
+  $("gn").innerHTML=ONLY?"":GROUPS.map(g=>`<button class="${g[0]===GR?"on":""}" onclick="setGr('${g[0]}')">${g[1]}</button>`).join("");
+  $("nv").innerHTML=tabs.map(t=>`<button class="${t[0]===TAB?"on":""}" onclick="setTab('${t[0]}')">${t[1]}</button>`).join("");
+  const sc=scrollY;
+  try{$("mn").innerHTML=R[TAB]()}catch(e){console.error(e);$("mn").innerHTML=`<div class="wn">Ocurrió un error al mostrar esta sección: ${esc(e.message)}</div>`}
+  scrollTo(0,sc);
+  if(TAB==="cfg"&&$("an"))atFill();
+}
+
+/* ======================= Inicio ======================= */
+function init(){
+  const em=$("orp-embed");
+  if(em){try{EMB=JSON.parse(em.textContent)}catch(e){}}
+  if(EMB&&EMB.only==="s21"){
+    ONLY=true;RO=true;
+    S=Object.assign(blank(),EMB.data||{});P={id:"emb",name:EMB.name||"Compartido",ro:true};
+    normalizeState();
+    document.body.classList.add("ro","only");
+    $("ttl").textContent="Organizador S-21";
+    $("sv").textContent="👁 Copia de solo consulta"+(EMB.name?" · "+EMB.name:"")+(EMB.date?" · "+EMB.date.slice(0,10):"");
+    GR="s21";TAB="s21";
+    go();
+    return;
+  }
+  load();
+  if(!hasD()){GR="reg";TAB="cfg";F.cs="datos"}
+  go();
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+  if("serviceWorker"in navigator&&location.protocol.indexOf("http")===0){
+    navigator.serviceWorker.register("sw.js").then(r=>{
+      REG=r;
+      const w=()=>{if(r.waiting&&navigator.serviceWorker.controller)$("bn").classList.remove("hidden")};
+      w();
+      r.addEventListener("updatefound",()=>{const n=r.installing;if(n)n.addEventListener("statechange",()=>{if(n.state==="installed")w()})});
+    }).catch(()=>{});
+    let rl=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!rl){rl=true;location.reload()}});
+  }
+}
+init();
+</script>
+</body></html>

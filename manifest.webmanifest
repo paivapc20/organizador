@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Organizador de Registros y S-21",
+  "short_name": "Organizador",
+  "description": "Informes, asistencia, tarjetas S-21 y registros de la congregación. Funciona sin conexión.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1c2740",
+  "theme_color": "#1c2740",
+  "lang": "es",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
