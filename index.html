@@ -752,12 +752,24 @@ async function sendF(f){
   dl(f);
 }
 function dl(f){const a=document.createElement("a");a.href=URL.createObjectURL(f);a.download=f.name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},2000)}
+/* Guarda en el equipo: abre "Guardar como" (Chrome/Edge); si no existe, descarga directa. Nunca usa el menú Compartir. */
+async function saveF(f){
+  if(window.showSaveFilePicker){
+    try{
+      const ext=f.name.split(".").pop();
+      const h=await window.showSaveFilePicker({suggestedName:f.name,types:[{description:ext.toUpperCase(),accept:{[f.type||"application/octet-stream"]:["."+ext]}}]});
+      const wr=await h.createWritable();await wr.write(f);await wr.close();
+      return true;
+    }catch(e){if(e&&e.name==="AbortError")return false}
+  }
+  dl(f);return true;
+}
 const compartir=()=>sendF(cp().f);
-const bajar=()=>dl(cp().f);
+const bajar=()=>saveF(cp().f);
 
 /* Guarda SOLO el Organizador S-21 (tarjetas, informe de publicadores, S-88 e inactivos) con los datos incrustados */
-function guardarHtml(){
-  if(!hasD())return;
+function buildHtml(){
+  if(!hasD())return null;
   const c=document.documentElement.cloneNode(true);
   ["nv","gn","mn","ps"].forEach(i=>{const e=c.querySelector("#"+i);if(e)e.innerHTML=""});
   c.querySelector("#sv").textContent="";
@@ -771,8 +783,10 @@ function guardarHtml(){
   t.id="orp-embed";t.type="application/json";
   t.textContent=JSON.stringify({only:"s21",name:P.name,date:new Date().toISOString(),data}).replace(/</g,"\\u003c");
   c.querySelector("body").prepend(t);
-  sendF(new File(["<!DOCTYPE html>\n"+c.outerHTML],"organizador_s21_"+slug(P.name)+"_"+stamp()+".html",{type:"text/html"}));
+  return new File(["<!DOCTYPE html>\n"+c.outerHTML],"organizador_s21_"+slug(P.name)+"_"+stamp()+".html",{type:"text/html"});
 }
+async function guardarHtml(){const f=buildHtml();if(f)await saveF(f)}
+function compartirHtml(){const f=buildHtml();if(f)sendF(f)}
 
 /* Convierte copias de las versiones anteriores */
 function conv(d){
@@ -849,7 +863,7 @@ function cfgCopia(){
   <label class="a">📥 Importar copia<input type="file" accept=".json,application/json" hidden onchange="importar(this.files[0]);this.value=''"></label>
   <div class="nt">Importar nunca borra tus datos: crea un perfil nuevo. También acepta copias .json de las versiones anteriores de ambas apps.</div></div>
   <div class="box"><b>💾 Guardar HTML del Organizador S-21</b><div class="nt">Crea un archivo .html que trae incorporados los datos y solo las funciones del Organizador S-21 (Tarjetas S-21, Informe de Publicadores, Reuniones S-88 e Inactivos). Se abre en cualquier navegador sin instalar nada, en modo consulta, y permite imprimir.</div>
-  <button class="a pr" onclick="guardarHtml()" ${d}>💾 Guardar HTML del S-21</button>
+  <button class="a pr" onclick="guardarHtml()" ${d}>💾 Guardar HTML en este equipo</button><button class="a" onclick="compartirHtml()" ${d}>📤 Compartir HTML</button>
   <div class="nt"><b>Privacidad:</b> ese archivo contiene nombres y fechas de personas. Compártelo solo con quien corresponda y no lo subas a un sitio público.</div></div>`;
 }
 function cfgApp(){
