@@ -420,24 +420,32 @@ function aaCalc(sy){
     const ini=S.ini[p.key];
     if(ini&&ini.t==="r"){const k=ini.y*12+ini.m;if(k>=idx(0)&&k<=idx(11))reac.add(p.key)}
   });
-  return{act:act.size,nuevos:nuevos.size,reac:reac.size,w0:ymOf(w0),w1:ymOf(lix)};
+  const nm=s=>S.pubs.filter(p=>s.has(p.key)).map(p=>p.nome);
+  return{act:act.size,nuevos:nuevos.size,reac:reac.size,aN:nm(act),nN:nm(nuevos),rN:nm(reac),w0:ymOf(w0),w1:ymOf(lix),lastM:ms[last].m};
 }
 R.aa=()=>{
   if(!S.pubs.length)return NEED("📈");
-  const sy=Y(),t=MT(sy),av=a=>{const n=a.reduce((s,r)=>s+r.n,0);return n?Math.round(a.reduce((s,r)=>s+r.t,0)/n):"—"};
+  /* Año por defecto: el último año de servicio completo (con datos de agosto), que es el "pasado año de servicio" del informe */
+  const ys=syL();
+  if(!ys.includes(+F.az)){
+    const done=ys.find(y=>Object.keys(S.rep).some(k=>{const a=k.split("|");return+a[1]===y&&+a[2]===8}));
+    F.az=done!=null?done:ys[0];
+  }
+  const sy=+F.az,t=MT(sy),av=a=>{const n=a.reduce((s,r)=>s+r.n,0);return n?Math.round(a.reduce((s,r)=>s+r.t,0)/n):"—"};
   const m=S.aa[sy]||{},c=aaCalc(sy);
   const it=(l,k)=>`<div><div class="nt">${l}</div><input type="text" inputmode="numeric" style="width:110px;font-size:20px;font-weight:800" value="${esc(m[k]||"")}" ${RO?"disabled":""} onchange="setAA(${sy},'${k}',this.value)"></div>`;
-  const au=(l,v,d)=>`<div><div class="nt">${l}</div><b style="font-size:26px">${c?v:"—"}</b><div class="nt">${d}</div></div>`;
+  const au=(l,v,d,names)=>`<div><div class="nt">${l}</div><b style="font-size:26px">${c?v:"—"}</b><div class="nt">${d}</div>${c&&names&&names.length?`<details class="nt"><summary>Ver nombres</summary>${names.map(esc).join(", ")}</details>`:""}</div>`;
+  const inc=c&&c.lastM!==8?`<div class="wn">El año de servicio ${sy-1}/${sy} todavía no está completo (hay datos hasta ${MN[c.lastM]}). Para el informe del año pasado elige <b>${sy-2}/${sy-1}</b> en “Año de servicio”.</div>`:"";
   const sec=(t2,h)=>`<div class="rb"><h2>${t2}</h2><div class="g">${h}</div></div>`;
   const win=c?`${MN[c.w0.m]} ${c.w0.y} – ${MN[c.w1.m]} ${c.w1.y}`:"";
-  return bar(sel("y","Año de servicio",yo(syL())),"Análisis "+sy)+
+  return bar(sel("az","Año de servicio",yo(ys)),"Análisis "+(sy-1)+"/"+sy)+inc+
   sec("Promedio de asistencia a las reuniones",`<div><div class="nt">Fin de semana</div><b style="font-size:22px">${av(t.wk)}</b></div><div><div class="nt">Entre semana</div><b style="font-size:22px">${av(t.mid)}</b></div>`)+
   sec("Totales de la congregación",
-    au("Todos los publicadores activos",c&&c.act,`Informaron participación al menos un mes entre ${win}. <i>Automático</i>`)+
+    au("Todos los publicadores activos",c&&c.act,`Informaron participación al menos un mes entre ${win}. <i>Automático</i>`,c&&c.aN)+
     it("Publicadores sordos","sordos")+
-    au("Nuevos publicadores inactivos",c&&c.nuevos,`Completaron 6 meses seguidos sin informar durante el año de servicio ${sy-1}/${sy}. <i>Automático</i>`)+
+    au("Nuevos publicadores inactivos",c&&c.nuevos,`Completaron 6 meses seguidos sin informar durante el año de servicio ${sy-1}/${sy}. <i>Automático</i>`,c&&c.nN)+
     it("Publicadores ciegos","ciegos")+
-    au("Publicadores reactivados",c&&c.reac,`Estaban inactivos y volvieron a informar en el año de servicio ${sy-1}/${sy}. <i>Automático</i>`)+
+    au("Publicadores reactivados",c&&c.reac,`Estaban inactivos y volvieron a informar en el año de servicio ${sy-1}/${sy} (incluye a quienes marcaste como “Reactivado”). <i>Automático</i>`,c&&c.rN)+
     it("Publicadores encarcelados","enc"))+
   sec("Territorios abarcados",it("Número total de territorios","ter")+it("Territorios no predicados","nop"))+
   `<div class="nt">Los campos con “Automático” se calculan con los informes cargados. Sordos, ciegos, encarcelados y territorios se llenan a mano y se guardan solos. Una misma persona puede contar en inactivos y en reactivados.</div>`;
