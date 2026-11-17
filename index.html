@@ -253,7 +253,18 @@ function bnd(){
   if(BND)return BND;
   let mn=1e9,mx=-1;
   for(const k in S.rep){const a=k.split("|"),i=+a[1]*12+ +a[2];if(i<mn)mn=i;if(i>mx)mx=i}
-  return BND={mn,mx};
+  return BND={mn,mx,ina:null};
+}
+/* Inactivos hoy: 6+ meses seguidos sin participar (hasta el último mes con datos) o 0 en "Situación" */
+function inactSet(){
+  const b=bnd();
+  if(b.ina)return b.ina;
+  const s=new Set();
+  if(b.mx>=0){
+    const t=ymOf(b.mx);
+    S.pubs.forEach(p=>{if(streak(p,b.mx,true)>=6||(p.sit===false&&!rea(p,t.y,t.m)))s.add(p.key)});
+  }
+  return b.ina=s;
 }
 /* meses seguidos sin participar que terminan en idx (incl=true cuenta idx) */
 function streak(p,idx,incl){
@@ -272,7 +283,7 @@ function inactiveAt(p,idx,incl){
 const syL=()=>{const s=new Set;for(const k in S.rep){const a=k.split("|");s.add(+a[2]>=9?+a[1]+1:+a[1])}return[...s].sort((a,b)=>b-a)};
 const atL=()=>{const s=new Set;for(const k in S.att){const e=S.att[k];s.add(e.m>=9?e.y+1:e.y)}return[...s].sort((a,b)=>b-a)};
 const gl=v=>v==null||v===""?"":String(v).replace(/\.0$/,"");
-const grps=()=>[...new Set(S.pubs.map(p=>gl(p.grupo)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+const grps=()=>[...new Set(S.pubs.filter(p=>!inactSet().has(p.key)).map(p=>gl(p.grupo)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
 const Y=()=>{const a=syL();if(!a.includes(+F.y))F.y=a[0]||new Date().getFullYear();return+F.y};
 const isAux=(p,sy)=>!p.fl.pioneiro&&SYM(sy).some(x=>{const e=E(p,x.y,x.m);return e&&yes(e.pr)});
 function RT(sy,only){
@@ -312,7 +323,12 @@ const nc=v=>`<td>${v||0}</td>`;
 const bx=o=>`<span class="cb${o?" on":""}"></span>`;
 const gOpts=aux=>[["","Todos"],...grps().map(g=>["g:"+g,"Grupo "+g]),["reg","Precursores Regulares"],...(aux===false?[]:[["aux","Precursores Auxiliares"]])];
 function byGroup(s,sy){
-  return S.pubs.filter(p=>s===""||s==null||(s==="reg"?p.fl.pioneiro:s==="aux"?isAux(p,sy):gl(p.grupo)===s.slice(2)&&!p.fl.pioneiro));
+  const ina=inactSet();
+  return S.pubs.filter(p=>{
+    if(s===""||s==null)return true;
+    if(ina.has(p.key))return false;   /* un inactivo ya no es precursor ni pertenece a un grupo */
+    return s==="reg"?p.fl.pioneiro:s==="aux"?isAux(p,sy):gl(p.grupo)===s.slice(2)&&!p.fl.pioneiro;
+  });
 }
 const fil=()=>{const q=norm(F.q||"");return byGroup(F.g||"",Y()).filter(p=>!q||norm(p.nome).includes(q))};
 const qf=()=>`<div class="f"><label>Nombre</label><input id="qn" type="text" value="${esc(F.q||"")}" placeholder="Filtrar por nombre..." oninput="qin(this)"></div>`;
@@ -377,7 +393,7 @@ R.asis=()=>{
 };
 
 R.preg=()=>{
-  const l=S.pubs.filter(p=>p.fl.pioneiro);
+  const ina0=inactSet(),l=S.pubs.filter(p=>p.fl.pioneiro&&!ina0.has(p.key));
   if(!l.length||!Object.keys(S.rep).length)return NEED("📊");
   const sy=Y(),col=(v,t)=>v/t>=1?"#bdf5c2":v/t>=.5?"#fdf3a6":"#f8b7ba",gc=(v,t)=>`<td style="background:${col(v,t)}">${r2(v)}</td>`;
   const rows=l.map(p=>{
@@ -387,17 +403,44 @@ R.preg=()=>{
   `<div class="rb"><h2>Registro de Precursores Regulares</h2><div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th>${MO.map(x=>`<th>${x[0].slice(0,3)}</th>`).join("")}<th>1 SEM TOTAL</th><th>1 SEM DEFIC</th><th>2 SEM TOTAL</th><th>2 SEM DEFIC</th><th>TOTAL ANUAL</th><th>DEFIC ANUAL</th></tr></thead><tbody>${rows}</tbody></table></div><div class="nt">Meta anual: 600 horas (2 semestres de 300: sep–feb y mar–ago). Un déficit negativo indica que la meta fue superada.</div></div>`;
 };
 
+/* Cálculo automático de los totales de la congregación para un año de servicio */
+function aaCalc(sy){
+  const ms=SYM(sy);let last=-1;
+  for(let i=11;i>=0&&last<0;i--)if(S.pubs.some(p=>E(p,ms[i].y,ms[i].m)))last=i;
+  if(last<0)return null;
+  const idx=i=>ms[i].y*12+ms[i].m,lix=idx(last),w0=lix-5;
+  const act=new Set(),nuevos=new Set(),reac=new Set();
+  S.pubs.forEach(p=>{
+    for(let i=w0;i<=lix;i++){const t=ymOf(i);if(!na(p,t.y,t.m)&&!irr(p,t.y,t.m)){act.add(p.key);break}}
+    for(let i=0;i<=last;i++){
+      const ix=idx(i),t=ms[i];
+      if(streak(p,ix,true)===6)nuevos.add(p.key);
+      if(!irr(p,t.y,t.m)&&streak(p,ix-1,true)>=6)reac.add(p.key);
+    }
+    const ini=S.ini[p.key];
+    if(ini&&ini.t==="r"){const k=ini.y*12+ini.m;if(k>=idx(0)&&k<=idx(11))reac.add(p.key)}
+  });
+  return{act:act.size,nuevos:nuevos.size,reac:reac.size,w0:ymOf(w0),w1:ymOf(lix)};
+}
 R.aa=()=>{
   if(!S.pubs.length)return NEED("📈");
   const sy=Y(),t=MT(sy),av=a=>{const n=a.reduce((s,r)=>s+r.n,0);return n?Math.round(a.reduce((s,r)=>s+r.t,0)/n):"—"};
-  const m=S.aa[sy]||{};
+  const m=S.aa[sy]||{},c=aaCalc(sy);
   const it=(l,k)=>`<div><div class="nt">${l}</div><input type="text" inputmode="numeric" style="width:110px;font-size:20px;font-weight:800" value="${esc(m[k]||"")}" ${RO?"disabled":""} onchange="setAA(${sy},'${k}',this.value)"></div>`;
+  const au=(l,v,d)=>`<div><div class="nt">${l}</div><b style="font-size:26px">${c?v:"—"}</b><div class="nt">${d}</div></div>`;
   const sec=(t2,h)=>`<div class="rb"><h2>${t2}</h2><div class="g">${h}</div></div>`;
+  const win=c?`${MN[c.w0.m]} ${c.w0.y} – ${MN[c.w1.m]} ${c.w1.y}`:"";
   return bar(sel("y","Año de servicio",yo(syL())),"Análisis "+sy)+
   sec("Promedio de asistencia a las reuniones",`<div><div class="nt">Fin de semana</div><b style="font-size:22px">${av(t.wk)}</b></div><div><div class="nt">Entre semana</div><b style="font-size:22px">${av(t.mid)}</b></div>`)+
-  sec("Totales de la congregación",it("Todos los publicadores activos","activos")+it("Publicadores sordos","sordos")+it("Nuevos publicadores inactivos","inN")+it("Publicadores ciegos","ciegos")+it("Publicadores reactivados","reac")+it("Publicadores encarcelados","enc"))+
+  sec("Totales de la congregación",
+    au("Todos los publicadores activos",c&&c.act,`Informaron participación al menos un mes entre ${win}. <i>Automático</i>`)+
+    it("Publicadores sordos","sordos")+
+    au("Nuevos publicadores inactivos",c&&c.nuevos,`Completaron 6 meses seguidos sin informar durante el año de servicio ${sy-1}/${sy}. <i>Automático</i>`)+
+    it("Publicadores ciegos","ciegos")+
+    au("Publicadores reactivados",c&&c.reac,`Estaban inactivos y volvieron a informar en el año de servicio ${sy-1}/${sy}. <i>Automático</i>`)+
+    it("Publicadores encarcelados","enc"))+
   sec("Territorios abarcados",it("Número total de territorios","ter")+it("Territorios no predicados","nop"))+
-  `<div class="nt">Los campos se llenan a mano y se guardan solos.</div>`;
+  `<div class="nt">Los campos con “Automático” se calculan con los informes cargados. Sordos, ciegos, encarcelados y territorios se llenan a mano y se guardan solos. Una misma persona puede contar en inactivos y en reactivados.</div>`;
 };
 
 R.irr=()=>{
@@ -421,16 +464,16 @@ R.irr=()=>{
 
 R.pub=()=>{
   if(!S.pubs.length)return NEED("📃");
-  const l=fil();
+  const l=fil(),ina=inactSet();
   return bar(sel("g","Grupo",gOpts())+qf(),l.length+" publicadores")+
-  `<div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th><th>Grupo</th><th>Nacimiento</th><th>Bautismo</th></tr></thead><tbody>${l.map(p=>`<tr><td class="l">${esc(p.nome)}</td><td>${p.fl.pioneiro?"Precursor Regular":gl(p.grupo)}</td><td>${fd(p.nasc)}</td><td>${fd(p.bat)}</td></tr>`).join("")}</tbody></table></div>`;
+  `<div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th><th>Grupo</th><th>Nacimiento</th><th>Bautismo</th></tr></thead><tbody>${l.map(p=>`<tr><td class="l">${esc(p.nome)}</td><td>${ina.has(p.key)?'<span class="tag">Inactivo</span>':p.fl.pioneiro?"Precursor Regular":gl(p.grupo)}</td><td>${fd(p.nasc)}</td><td>${fd(p.bat)}</td></tr>`).join("")}</tbody></table></div>`;
 };
 
 R.grp=()=>{
   if(!S.pubs.length)return NEED("👥");
   const gs=grps();
   return bar("",gs.length+" grupos")+`<div class="g">${gs.map(g=>{
-    const m=S.gm[g]||{},ms=S.pubs.filter(p=>gl(p.grupo)===g),au=k=>ms.filter(p=>p.fl[k]).map(p=>p.nome).join(", ");
+    const ina=inactSet(),m=S.gm[g]||{},ms=S.pubs.filter(p=>gl(p.grupo)===g&&!ina.has(p.key)),au=k=>ms.filter(p=>p.fl[k]).map(p=>p.nome).join(", ");
     return`<div class="gc"><b>Grupo ${esc(g)}</b><div>Sup.<input type="text" ${RO?"disabled":""} data-g="${esc(g)}" value="${esc(m.s||au("sup"))}" onchange="setGm(this,'s')">Ayd.<input type="text" ${RO?"disabled":""} data-g="${esc(g)}" value="${esc(m.a||au("ayd"))}" onchange="setGm(this,'a')"></div>${ms.map(p=>`<div>${esc(p.nome)} <b style="color:var(--brass)">${[p.fl.anciao?"(A)":"",p.fl.servo?"(SM)":"",p.fl.pioneiro?"(PR)":""].join("")}</b></div>`).join("")}</div>`}).join("")}</div>`;
 };
 
@@ -441,19 +484,20 @@ R.s21=()=>{
   if(F.sn&&!names.some(p=>p.key===F.sn))F.sn="";
   const l=F.sn?names.filter(p=>p.key===F.sn):names;
   const card=p=>{
-    const f=p.fl;let th=0,ah=false;
+    const f=p.fl,ia=inactSet().has(p.key);let th=0,tc=0;
     const rows=SYM(sy).map(x=>{
       const e=E(p,x.y,x.m),pm=!!(e&&yes(e.pr)),h=e&&(f.pioneiro||pm)&&e.h!=null?e.h:"";
-      if(h!==""){th+=h;ah=true}
+      if(h!=="")th+=h;
+      if(e&&e.c>0)tc+=e.c;
       return`<tr><td class="mon">${MN[x.m]}</td><td class="c">${bx(e&&yes(e.pa))}</td><td class="c">${e&&e.c>0?e.c:""}</td><td class="c">${bx(pm&&!f.pioneiro)}</td><td class="r">${h}</td><td class="nt2">${esc(e?e.n:"")}</td></tr>`}).join("");
     return`<div class="s21card"><div class="title">Registro de Publicador de la Congregación</div>
     <div class="idrow"><span class="lbl">Nombre:</span><span class="val name">${esc(p.nome)}</span></div>
     <div class="idrow"><span class="lbl">Fecha de nacimiento:</span><span class="val">${esc(fd(p.nasc))}</span><span class="checkline"><span class="chk">${bx(f.homem)} Hombre</span><span class="chk">${bx(f.mulher)} Mujer</span></span></div>
     <div class="idrow"><span class="lbl">Fecha de bautismo:</span><span class="val">${esc(fd(p.bat))}</span><span class="checkline"><span class="chk">${bx(f.oo)} Otras ovejas</span><span class="chk">${bx(f.ungido)} Ungido</span></span></div>
-    <div class="checkline"><span class="chk">${bx(f.anciao)} Anciano</span><span class="chk">${bx(f.servo)} Siervo ministerial</span><span class="chk">${bx(f.pioneiro)} Precursor regular</span><span class="chk">${bx(false)} Precursor especial</span><span class="chk">${bx(false)} Misionero que sirve en el campo</span></div><hr class="rule">
+    <div class="checkline"><span class="chk">${bx(f.anciao)} Anciano</span><span class="chk">${bx(f.servo)} Siervo ministerial</span><span class="chk">${bx(f.pioneiro&&!ia)} Precursor regular</span><span class="chk">${bx(false)} Precursor especial</span><span class="chk">${bx(false)} Misionero que sirve en el campo</span></div><hr class="rule">
     <div class="syline">Año de servicio: <span class="yr">${sy}</span></div>
-    <div class="w"><table class="s21"><thead><tr><th class="cw1">Mes</th><th class="cw2">Participación en el ministerio</th><th class="cw3">Cursos bíblicos</th><th class="cw4">Precursor auxiliar</th><th class="cw5">Horas</th><th>Notas</th></tr></thead><tbody>${rows}<tr class="total"><td class="mon">Total</td><td></td><td></td><td></td><td class="r">${ah?r2(th):""}</td><td></td></tr></tbody></table></div>
-    <div class="foot"><span>S-21-S</span><span>${f.pioneiro?"Precursor regular":"Publicador"}</span></div></div>`;
+    <div class="w"><table class="s21"><thead><tr><th class="cw1">Mes</th><th class="cw2">Participación en el ministerio</th><th class="cw3">Cursos bíblicos</th><th class="cw4">Precursor auxiliar</th><th class="cw5">Horas</th><th>Notas</th></tr></thead><tbody>${rows}<tr class="total"><td class="mon">Total</td><td></td><td class="c">${r2(tc)}</td><td></td><td class="r">${r2(th)}</td><td></td></tr></tbody></table></div>
+    <div class="foot"><span>S-21-S</span><span>${ia?"Inactivo":f.pioneiro?"Precursor regular":"Publicador"}</span></div></div>`;
   };
   const nameSel=`<div class="f"><label>Nombre</label><select onchange="F.sn=this.value;go()"><option value="">Todos los seleccionados</option>${names.map(p=>`<option value="${esc(p.key)}"${p.key===F.sn?" selected":""}>${esc(p.nome)}</option>`).join("")}</select></div>`;
   return unm()+bar(sel("y","Año de servicio",yo(syL()))+sel("g","Grupo",gOpts(),undefined,"F.sn='';")+nameSel,l.length+(l.length===1?" tarjeta":" tarjetas"))+
@@ -525,19 +569,11 @@ R.reu=()=>{
 
 R.ina=()=>{
   if(!S.pubs.length)return NEED("📋");
-  const b=bnd();
-  if(b.mx<0)return NEED("📋");
-  const g=F.ig||"",last={};
-  for(const k in S.rep){if(yes(S.rep[k].pa)){const a=k.split("|"),i=+a[1]*12+ +a[2];if(last[a[0]]==null||i>last[a[0]])last[a[0]]=i}}
-  const t=ymOf(b.mx);
-  const rows=byGroup(g,0).map(p=>({p,s:streak(p,b.mx,true),li:last[p.key]==null?null:last[p.key]}))
-    .filter(r=>r.s>=6||(r.p.sit===false&&!rea(r.p,t.y,t.m)))
-    .sort((a,c)=>c.s-a.s||a.p.nome.localeCompare(c.p.nome));
-  const ml=i=>{if(i==null)return"Nunca reportó";const q=ymOf(i);return MN[q.m]+" "+q.y};
-  const tag=p=>p.fl.pioneiro?'<span class="tag">Precursor Regular</span>':(gl(p.grupo)?`<span class="tag">Grupo ${esc(gl(p.grupo))}</span>`:"");
-  return bar(`<div class="f"><label>Grupo</label><select onchange="F.ig=this.value;go()">${opt(gOpts(false),g)}</select></div>`,rows.length+(rows.length===1?" inactivo":" inactivos"))+
-  `<div class="wn">Se considera inactivo a quien lleva 6 meses seguidos o más sin reportar participación (hasta ${MN[t.m]} ${t.y}, el último mes con datos), o quien tiene 0 en la columna “Situación” de la lista de publicadores.</div>`+
-  (rows.length?`<div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th><th>Grupo</th><th>Último mes reportado</th><th>Meses sin reportar</th><th>Nacimiento</th><th>Bautismo</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="l">${esc(r.p.nome)}</td><td>${tag(r.p)}</td><td>${esc(ml(r.li))}</td><td>${r.s}</td><td>${fd(r.p.nasc)}</td><td>${fd(r.p.bat)}</td></tr>`).join("")}</tbody></table></div>`:emp("✅","Ningún publicador inactivo con ese filtro."));
+  if(bnd().mx<0)return NEED("📋");
+  const ina=inactSet(),rows=S.pubs.filter(p=>ina.has(p.key)).sort((a,b)=>a.nome.localeCompare(b.nome,"es"));
+  const ck=v=>v?"✓":"";
+  return bar("",rows.length+(rows.length===1?" inactivo":" inactivos"))+
+  `<div class="rb"><h2>Inactivos</h2><div class="w"><table class="dk"><thead><tr><th class="l">Nombre</th><th>Nacimiento</th><th>Bautismo</th><th>H</th><th>M</th><th>A</th><th>SM</th><th>PR</th><th>OO</th><th>U</th></tr></thead><tbody>${rows.map(p=>{const f=p.fl;return`<tr><td class="l">${esc(p.nome)}</td><td>${fd(p.nasc)}</td><td>${fd(p.bat)}</td><td>${ck(f.homem)}</td><td>${ck(f.mulher)}</td><td>${ck(f.anciao)}</td><td>${ck(f.servo)}</td><td></td><td>${ck(f.oo)}</td><td>${ck(f.ungido)}</td></tr>`}).join("")}</tbody></table></div><div class="nt">Inactivo: 6 meses seguidos o más sin informar, o marcado con 0 en la columna “Situación”.</div></div>`;
 };
 /* ======================= Excel ======================= */
 function rdWb(f,cb){
@@ -809,7 +845,7 @@ function cfgCopia(){
   <div class="nt"><b>Privacidad:</b> ese archivo contiene nombres y fechas de personas. Compártelo solo con quien corresponda y no lo subas a un sitio público.</div></div>`;
 }
 function cfgApp(){
-  return`<div class="box"><b>📲 Aplicación</b><div class="nt">Versión 1.0 · funciona sin conexión una vez instalada. Tus datos viven solo en este dispositivo y navegador: nadie más puede verlos.</div>
+  return`<div class="box"><b>📲 Aplicación</b><div class="nt">Versión 1.1 · funciona sin conexión una vez instalada. Tus datos viven solo en este dispositivo y navegador: nadie más puede verlos.</div>
   <button class="a" onclick="inst()">Instalar app</button><button class="a" onclick="buscar()">Buscar actualización</button></div>
   <div class="box"><b>🔒 Dónde se guardan tus datos</b><div class="nt">Se guardan automáticamente en el almacenamiento de este navegador. Si borras los datos del navegador o desinstalas la app, se pierden: haz una copia en “Copias y compartir” de vez en cuando.</div></div>`;
 }
