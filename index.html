@@ -334,11 +334,43 @@ const fil=()=>{const q=norm(F.q||"");return byGroup(F.g||"",Y()).filter(p=>!q||n
 const qf=()=>`<div class="f"><label>Nombre</label><input id="qn" type="text" value="${esc(F.q||"")}" placeholder="Filtrar por nombre..." oninput="qin(this)"></div>`;
 function qin(el){F.q=el.value;clearTimeout(qin.t);qin.t=setTimeout(()=>{go();const i=$("qn");if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},280)}
 function gotoCfg(){GR="reg";TAB="cfg";F.cs="datos";go();scrollTo(0,0)}
+/* Nombres de informes que no coinciden con la lista: solo se avisan los que PARECEN ser de alguien de la lista (p. ej. “Carlos Pérez” vs “Carlos Julio Pérez”). Los de personas que ya no están no se muestran. */
+const STOPW=["de","del","la","las","los","y","da","do","dos","das","e"];
+const tok=s=>norm(s).replace(/[,.\-]/g," ").split(" ").filter(w=>w&&!STOPW.includes(w));
+function lev1(a,b){
+  if(a===b)return true;if(Math.abs(a.length-b.length)>1)return false;
+  let i=0;while(i<a.length&&i<b.length&&a[i]===b[i])i++;
+  if(a.length===b.length)return a.slice(i+1)===b.slice(i+1);
+  return a.length>b.length?a.slice(i+1)===b.slice(i):b.slice(i+1)===a.slice(i);
+}
+const teq=(a,b)=>a===b||(a.length>=5&&b.length>=5&&lev1(a,b));
+function nameHints(){
+  const ks=new Set(S.pubs.map(p=>p.key)),un={},own={};
+  for(const k in S.rep){
+    const a=k.split("|"),ym=a[1]+"|"+a[2];
+    (own[a[0]]=own[a[0]]||new Set()).add(ym);
+    if(!ks.has(a[0]))(un[a[0]]=un[a[0]]||{nm:S.rep[k].nm||a[0],ms:new Set()}).ms.add(ym);
+  }
+  const out=[];
+  for(const key in un){
+    const u=un[key],tu=tok(u.nm);let best=null;
+    S.pubs.forEach(p=>{
+      const tp=tok(p.nome),used=new Set();let c=0;
+      tu.forEach(w=>{const j=tp.findIndex((x,i)=>!used.has(i)&&teq(w,x));if(j>=0){used.add(j);c++}});
+      if(c<2||c<Math.min(tu.length,tp.length))return;          /* deben aparecer todas las palabras del nombre más corto */
+      const mine=own[p.key];
+      if(mine&&[...u.ms].some(m=>mine.has(m)))return;           /* ya informa esos mismos meses: es otra persona */
+      const sc=c/Math.max(tu.length,tp.length);
+      if(!best||sc>best.sc)best={p,sc};
+    });
+    if(best)out.push({rep:u.nm,pub:best.p.nome});
+  }
+  return out.sort((x,y)=>x.pub.localeCompare(y.pub,"es"));
+}
 const unm=()=>{
-  const ks=new Set(S.pubs.map(p=>p.key)),u={};
-  for(const k in S.rep){const n=k.split("|")[0];if(!ks.has(n))u[n]=S.rep[k].nm||n}
-  const l=Object.values(u);
-  return l.length?`<div class="wn">⚠ ${l.length} nombre(s) de los informes no coinciden con ningún publicador de la lista, por eso no aparecen en sus tarjetas: <b>${l.slice(0,15).map(esc).join(", ")}${l.length>15?"…":""}</b>. Escríbelos igual que en la lista de Publicadores.</div>`:"";
+  if(ONLY)return"";
+  const h=nameHints();
+  return h.length?`<div class="wn"><b>⚠ ${h.length} nombre(s) parecen ser la misma persona pero están escritos distinto</b> en el informe y en la lista de Publicadores, por eso ese informe no llega a su tarjeta:<ul style="margin:6px 0;padding-left:20px">${h.slice(0,20).map(x=>`<li>Informe: <b>${esc(x.rep)}</b> &nbsp;↔&nbsp; Lista: <b>${esc(x.pub)}</b></li>`).join("")}${h.length>20?"<li>…</li>":""}</ul>Corrige el nombre en el Excel para que sea igual y vuelve a cargarlo.</div>`:"";
 };
 function setAA(sy,k,v){(S.aa[sy]=S.aa[sy]||{})[k]=v;save()}
 function setGm(el,k){const g=el.dataset.g;(S.gm[g]=S.gm[g]||{})[k]=el.value;save()}
@@ -410,12 +442,17 @@ function aaCalc(sy){
   if(last<0)return null;
   const idx=i=>ms[i].y*12+ms[i].m,lix=idx(last),w0=lix-5;
   const act=new Set(),nuevos=new Set(),reac=new Set();
+  /* La historia de cada persona empieza en su primer informe cargado: antes de eso no se sabe nada de ella
+     (p. ej. vino de otra congregación), así que esos meses no cuentan como inactividad. */
+  const first={};
+  for(const k in S.rep){const a=k.split("|"),i=+a[1]*12+ +a[2];if(first[a[0]]==null||i<first[a[0]])first[a[0]]=i}
+  const sk=(p,ix)=>{const f=first[p.key];if(f==null)return 0;let n=0;for(let i=ix;i>=f;i--){const t=ymOf(i);if(na(p,t.y,t.m)||!irr(p,t.y,t.m))break;n++}return n};
   S.pubs.forEach(p=>{
     for(let i=w0;i<=lix;i++){const t=ymOf(i);if(!na(p,t.y,t.m)&&!irr(p,t.y,t.m)){act.add(p.key);break}}
     for(let i=0;i<=last;i++){
       const ix=idx(i),t=ms[i];
-      if(streak(p,ix,true)===6)nuevos.add(p.key);
-      if(!irr(p,t.y,t.m)&&streak(p,ix-1,true)>=6)reac.add(p.key);
+      if(sk(p,ix)===6)nuevos.add(p.key);
+      if(!irr(p,t.y,t.m)&&sk(p,ix-1)>=6)reac.add(p.key);
     }
     const ini=S.ini[p.key];
     if(ini&&ini.t==="r"){const k=ini.y*12+ini.m;if(k>=idx(0)&&k<=idx(11))reac.add(p.key)}

@@ -1,5 +1,5 @@
 /* Service worker del Organizador. Sube el número de VERSION cada vez que publiques cambios. */
-const VERSION="v4";
+const VERSION="v5";
 const CACHE="organizador-"+VERSION;
 const ASSETS=["./","index.html","manifest.webmanifest","xlsx.full.min.js","icon-192.png","icon-512.png","icon-maskable-512.png","logo.svg"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
